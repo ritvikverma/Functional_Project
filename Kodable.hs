@@ -94,7 +94,7 @@ solve inpMap playerInp =
                                         putStrLn $ "The bonus(es) on this path are: " ++ show (getBonusOnMap unJustMap)
                                 else
                                     do
-                                        putStrLn $ "There is no path where we can collect all " ++ show (getBonusOnMap unJustMap) ++ " bonuses on this map"
+                                        putStrLn $ "There is no path where we can collect all " ++ show (getBonusOnMap unJustMap) ++ " bonus(es) on this map"
                         else
                             do
                                 putStrLn "This map is not solvable"
