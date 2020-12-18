@@ -2,8 +2,18 @@ module KodableUtils where
 
 import Data.List
 import Data.Maybe
-
+import Prelude
 import Control.Monad 
+import Parser
+
+import Control.Applicative hiding (optional)
+import Control.Monad ()
+
+import Control.Arrow ()
+
+import Data.Char
+import Data.Functor
+import Data.Monoid
 
 data MapElement = PathBlock | Grass | Bonus | Target | Pink | Orange | Yellow | Ball | InvalidElement deriving (Eq)
 data Direction = Down | Up | Right | Left | ConditionalElem Conditional | LoopElem Loop | FunctionElem Function | InvalidDirection deriving (Eq)
@@ -35,6 +45,7 @@ instance Show Direction where
     show (ConditionalElem c) = show c
     show (LoopElem l) = show l
     show (FunctionElem f) = show f
+    show InvalidDirection = "Invalid"
 
 instance Show Function where
     show (Function (direction1, direction2, direction3)) = "with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
@@ -43,11 +54,39 @@ instance Show Loop where
     show (Loop (n, direction1, direction2)) = "Loop{" ++ show n ++ "}{" ++ show direction1 ++ "," ++ show direction2 ++ "}"
 
 stringToDirection :: String -> Direction
-stringToDirection "Down" = Down
-stringToDirection "Up" = Up
-stringToDirection "Right" = KodableUtils.Right
-stringToDirection "Left" = KodableUtils.Left
-stringToDirection _ = InvalidDirection
+stringToDirection inpString
+    | inpString == "Down" = Down
+    | inpString == "Up" = Up
+    | inpString == "Right" = KodableUtils.Right
+    | inpString == "Left" = KodableUtils.Left
+    | runParser conditionalParser inpString /=[] = ConditionalElem (fst(head(runParser conditionalParser inpString)))
+    | runParser loopParser inpString /=[] = LoopElem (fst(head(runParser loopParser inpString)))
+    | otherwise = InvalidDirection
+
+conditionalParser :: Parser Conditional
+conditionalParser = do
+    string "Cond{"
+    colour <- string "p" +++ string "y" +++ string "o"
+    string "}{"
+    direction <- string "Down" +++ string "Up" +++ string "Left" +++ string "Right"
+    string "}"
+    return $ Conditional (charToElement colour, stringToDirection direction)
+ 
+loopParser :: Parser Loop
+loopParser = do
+    string "Loop{"
+    number <- string "0" +++ string "1" +++ string "2" +++ string "3" +++ string "4" +++ string "5"
+    string "}{"
+    direction1 <- string "Down" +++ string "Up" +++ string "Left" +++ string "Right" +++ conditionalContainedParser
+    string ","
+    direction2 <- string "Down" +++ string "Up" +++ string "Left" +++ string "Right" +++ conditionalContainedParser
+    string "}"
+    return $ Loop (read number :: Int, stringToDirection direction1, stringToDirection direction2)
+    where
+        conditionalContainedParser = parser(\s -> case runParser conditionalParser s of
+                                            [] -> []
+                                            [(x, xs)] -> [(show x, xs)]
+                                            )
 
 charToElement :: String -> MapElement
 charToElement "*" = Grass
