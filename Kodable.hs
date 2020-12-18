@@ -109,7 +109,7 @@ playInput inpMap firstTime directions = do
         putStr "First Direction: "
         playerInp <- getLine
         if length (words playerInp) /= 1 || stringToDirection (head $ words playerInp) == InvalidDirection then do
-            putStrLn "Invalid arguments for first direction"
+            putStrLn "Invalid arguments for first direction. Make sure you are complying with the rules of the game."
             playInput inpMap True directions
         else do
             let inputtedValidDirection = stringToDirection (head $ words playerInp) 
@@ -122,7 +122,7 @@ playInput inpMap firstTime directions = do
             putStrLn ""
             print directions
         else if length (words playerInp) > 1 || stringToDirection (head $ words playerInp)  == InvalidDirection then do
-            putStrLn "Invalid arguments for direction"
+            putStrLn "Invalid arguments for direction. Make sure you are complying with the rules of the game."
             playInput inpMap False directions
         else do
             let inputtedValidDirection = stringToDirection (head $ words playerInp) 

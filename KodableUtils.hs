@@ -7,7 +7,6 @@ import Control.Monad
 import Parser
 
 import Control.Applicative hiding (optional)
-import Control.Monad ()
 
 import Control.Arrow ()
 
