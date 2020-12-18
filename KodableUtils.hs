@@ -62,12 +62,15 @@ stringToDirection inpString
     | runParser loopParser inpString /=[] = LoopElem (fst(head(runParser loopParser inpString)))
     | otherwise = InvalidDirection
 
+simpleDirectionParser :: Parser String
+simpleDirectionParser = string "Down" +++ string "Up" +++ string "Left" +++ string "Right"
+
 conditionalParser :: Parser Conditional
 conditionalParser = do
     string "Cond{"
     colour <- string "p" +++ string "y" +++ string "o"
     string "}{"
-    direction <- string "Down" +++ string "Up" +++ string "Left" +++ string "Right"
+    direction <- simpleDirectionParser
     string "}"
     return $ Conditional (charToElement colour, stringToDirection direction)
  
@@ -76,9 +79,9 @@ loopParser = do
     string "Loop{"
     number <- string "0" +++ string "1" +++ string "2" +++ string "3" +++ string "4" +++ string "5"
     string "}{"
-    direction1 <- string "Down" +++ string "Up" +++ string "Left" +++ string "Right" +++ conditionalContainedParser
+    direction1 <- simpleDirectionParser +++ conditionalContainedParser
     string ","
-    direction2 <- string "Down" +++ string "Up" +++ string "Left" +++ string "Right" +++ conditionalContainedParser
+    direction2 <- simpleDirectionParser +++ conditionalContainedParser
     string "}"
     return $ Loop (read number :: Int, stringToDirection direction1, stringToDirection direction2)
     where
