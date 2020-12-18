@@ -125,12 +125,23 @@ neighbours inpMap (a, b) = [(x,y) | (x,y) <- existingNeighbours, booledMap !! x 
 inBoard :: Map -> Location -> Bool
 inBoard inpMap (a,b) = a >= 0 && a < length inpMap && b >= 0 && b < length(head inpMap)
 
-getNextInDirection :: Location -> Location -> Location
-getNextInDirection (parentRow, parentColumn) (currRow, currColumn)
-    | parentRow - currRow == 1 = (currRow - 1 , currColumn) -- Going up
-    | parentRow - currRow == -1 = (currRow + 1 , currColumn) -- Going down
-    | parentColumn - currColumn == 1 = (currRow, currColumn - 1) -- Going left
-    | parentColumn - currColumn == -1 = (currRow, currColumn + 1) -- Going right
+move :: Map -> Direction -> (Map, Int, Bool)
+move inpMap direction
+    | direction == Up && inBoard inpMap (ballRow - 1, ballColumn) && getElementAtLocation inpMap (ballRow - 1, ballColumn) `elem` movableElements = makeMove (ballRow - 1, ballColumn)
+    | direction == Down && inBoard inpMap (ballRow + 1, ballColumn) && getElementAtLocation inpMap (ballRow + 1, ballColumn) `elem` movableElements = makeMove (ballRow + 1, ballColumn)
+    | direction == KodableUtils.Right && inBoard inpMap (ballRow, ballColumn + 1) && getElementAtLocation inpMap (ballRow, ballColumn + 1) `elem` movableElements = makeMove (ballRow, ballColumn + 1)
+    | direction == KodableUtils.Left && inBoard inpMap (ballRow, ballColumn - 1) && getElementAtLocation inpMap (ballRow, ballColumn - 1) `elem` movableElements = makeMove (ballRow, ballColumn - 1)
+    | otherwise = (inpMap, 0, False)
+    where
+        (ballRow, ballColumn) = fromJust (getElementLocationInMap inpMap Ball)
+        makeMove targetPosition
+            | getElementAtLocation inpMap targetPosition == Bonus = (swapPositions (ballRow, ballColumn) targetPosition, 1, False)
+            | getElementAtLocation inpMap targetPosition == Target = (swapPositions (ballRow, ballColumn) targetPosition, 0, True)
+            | otherwise =  (swapPositions (ballRow, ballColumn) targetPosition, 0, False)
+        swapPositions ballPosition targetPosition = putElemAtLocation (putElemAtLocation inpMap targetPosition Ball) ballPosition PathBlock
+        movableElements = [PathBlock, Pink, Orange, Yellow, Bonus, Target]
+
+
 
 neighboursInDirection :: Map -> Location -> Location -> [Location]
 neighboursInDirection inpMap (parentX, parentY) (currX, currY)
@@ -140,6 +151,11 @@ neighboursInDirection inpMap (parentX, parentY) (currX, currY)
         nextNode = getNextInDirection (parentX, parentY) (currX, currY)
         currentIsCondition = isConditional (getElementAtLocation inpMap (currX, currY))
         hasReachedEnd = not (inBoard inpMap nextNode) || getElementAtLocation inpMap (getNextInDirection (parentX, parentY) (currX, currY)) == Grass
+        getNextInDirection (parentRow, parentColumn) (currRow, currColumn)
+            | parentRow - currRow == 1 = (currRow - 1 , currColumn) -- Going up
+            | parentRow - currRow == -1 = (currRow + 1 , currColumn) -- Going down
+            | parentColumn - currColumn == 1 = (currRow, currColumn - 1) -- Going left
+            | parentColumn - currColumn == -1 = (currRow, currColumn + 1) -- Going right
 
 putElemAtLocation :: Map -> Location -> MapElement -> Map
 putElemAtLocation inpMap (a,b) toPut = take a inpMap ++ [addPathBlock (inpMap !! a) b] ++ drop (a + 1) inpMap
@@ -168,6 +184,13 @@ getIndividualDirection (parentRow, parentColumn) (currRow, currColumn)
     | parentRow - currRow == -1 = Down -- Going down
     | parentColumn - currColumn == 1 = KodableUtils.Left -- Going left
     | parentColumn - currColumn == -1 =  KodableUtils.Right -- Going right
+
+decodeDirections :: [Direction] -> [Direction]
+decodeDirections = concatMap decodeDirection
+    where
+        decodeDirection (FunctionElem (Function(direction1, direction2, direction3))) = [direction1, direction2, direction3]
+        decodeDirection (LoopElem (Loop(n, direction1, direction2))) = concat $ replicate n [direction1, direction2]
+        decodeDirection direction = [direction]
 
 stringifyPath :: Map -> Path -> String
 stringifyPath inpMap path = appendDirections (map addDirectionStrings $ reverse (getReducedArray (reverse (getRawString inpMap path))))

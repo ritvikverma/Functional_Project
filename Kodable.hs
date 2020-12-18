@@ -103,6 +103,37 @@ solve inpMap playerInp =
                         putStrLn "No map loaded for solve"
         kodableMenu inpMap False    
 
+
+applyDirection :: Map -> Direction -> IO(Map, Bool)
+applyDirection inpMap direction = do
+    when (bonusesCollectedOnThisMove > 0) $ putStrLn (show bonusesCollectedOnThisMove ++ " bonu(es) collected! ")
+    if hasWon then return (mapAfterNextMove, True)
+    else if mapAfterNextMove == inpMap then return (mapAfterNextMove, hasWon)
+    else applyDirection mapAfterNextMove direction
+    where
+        (mapAfterNextMove, bonusesCollectedOnThisMove, hasWon) = move inpMap direction
+
+
+playGame :: Map -> [Direction] -> IO()
+playGame inpMap [] = do
+    putStrLn $ printMap inpMap
+    playInput inpMap False []    
+playGame inpMap (x:xs) = do
+    (mapAfterDirection, hasWon) <- applyDirection inpMap x
+    if hasWon then do
+        putStrLn "Congratulations! You win the game!"
+        putStrLn $ printMap mapAfterDirection
+        kodableMenu Nothing True
+    else if mapAfterDirection == inpMap then do
+        putStrLn "Sorry! You have inputted an invalid move. "
+        putStrLn "Your current board: "
+        putStrLn $ printMap inpMap
+        playInput inpMap False []
+    else do
+        playGame mapAfterDirection xs
+
+
+
 playInput :: Map -> Bool -> [Direction] -> IO()
 playInput inpMap firstTime directions = do
     if firstTime && null directions then do
@@ -119,14 +150,13 @@ playInput inpMap firstTime directions = do
         putStr "Next direction: "
         playerInp <- getLine
         if null $ words playerInp then do
-            putStrLn ""
-            print directions
+            playGame inpMap (decodeDirections directions) 
         else if length (words playerInp) > 1 || stringToDirection (head $ words playerInp)  == InvalidDirection then do
             putStrLn "Invalid arguments for direction. Make sure you are complying with the rules of the game."
             playInput inpMap False directions
         else do
             let inputtedValidDirection = stringToDirection (head $ words playerInp) 
-            playInput inpMap False (directions++[inputtedValidDirection])    
+            playInput inpMap False (directions++[inputtedValidDirection])  
 
 
 play :: Maybe Map -> String -> IO()
