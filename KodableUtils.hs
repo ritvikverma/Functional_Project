@@ -2,19 +2,45 @@ module KodableUtils where
 
 import Data.List
 import Data.Maybe
-import System.Random
 
 import Control.Monad 
 
-
 data MapElement = PathBlock | Grass | Bonus | Target | Pink | Orange | Yellow | Ball | InvalidElement deriving (Eq)
-data Direction = Down | Up | Right | Left | InvalidDirection deriving (Eq, Show)
+data Direction = Down | Up | Right | Left | ConditionalElem Conditional | LoopElem Loop | FunctionElem Function | InvalidDirection deriving (Eq)
+newtype Conditional = Conditional (MapElement, Direction) deriving (Eq)
+newtype Function = Function (Direction, Direction, Direction) deriving (Eq)
+newtype Loop = Loop (Int, Direction, Direction) deriving (Eq)
 type Map = [[MapElement]]
-type Conditional = (MapElement, Direction)
-type Function = (Direction, Direction, Direction)
-type Loop = (Int, Direction, Direction)
 type Location = (Int, Int)
 type Path = [Location]
+
+instance Show Conditional where
+    show (Conditional (mapElement, direction)) = "Cond{" ++ show mapElement ++ "}{" ++ show direction ++ "}"
+
+instance Show MapElement where
+    show Grass = "*"
+    show PathBlock = "-"
+    show Bonus = "b"
+    show Ball = "@"
+    show Pink = "p"
+    show Orange = "o"
+    show Yellow = "y"
+    show Target = "t"
+
+instance Show Direction where
+    show Down = "Down"
+    show Up = "Up"
+    show KodableUtils.Right = "Right"
+    show KodableUtils.Left = "Left"
+    show (ConditionalElem c) = show c
+    show (LoopElem l) = show l
+    show (FunctionElem f) = show f
+
+instance Show Function where
+    show (Function (direction1, direction2, direction3)) = "with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
+
+instance Show Loop where
+    show (Loop (n, direction1, direction2)) = "Loop{" ++ show n ++ "}{" ++ show direction1 ++ "," ++ show direction2 ++ "}"
 
 stringToDirection :: String -> Direction
 stringToDirection "Down" = Down
@@ -34,34 +60,9 @@ charToElement "y" = Yellow
 charToElement "t" = Target
 charToElement  _  = InvalidElement
 
-instance Show MapElement where
-    show Grass = "*"
-    show PathBlock = "-"
-    show Bonus = "b"
-    show Ball = "@"
-    show Pink = "p"
-    show Orange = "o"
-    show Yellow = "y"
-    show Target = "t"
-
-conditionalToString :: Conditional -> String
-conditionalToString (mapElement, direction) = "Cond{" ++ show mapElement ++ "}{" ++ show direction ++ "}"
-
 printMap :: Map -> String
 printMap [x] = unwords (map show x)
 printMap (x:xs) = unwords (map show x) ++ "\n" ++ printMap xs
-
-generateRow :: Int -> Int -> Int -> IO[MapElement]
-generateRow columns conditionals bonuses = do 
-    r <- randomIO
-    let moddedR = r `mod` 3
-    return $ replicate (ceiling (fromIntegral columns/2) - bonuses) Grass ++ replicate (floor (fromIntegral columns/2) - conditionals) PathBlock ++ replicate bonuses Bonus ++ replicate conditionals [Pink, Yellow, Orange] !! moddedR
-
-
--- generateRandomMap :: Int -> Int -> Int -> Int -> Maybe Map
--- generateRandomMap rows columns conditionals bonuses
---     | conditionals+bonuses > rows*columns = Nothing
---     | rows == 1 = generateRow
 
 isConditional :: MapElement -> Bool
 isConditional ele = ele `elem` [Yellow, Pink, Orange]
@@ -135,5 +136,5 @@ stringifyPath inpMap path = appendDirections (map addDirectionStrings $ reverse 
         getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else getReducedArray (y:zs)
         getRawString inpMap [x,y] = [(getElementAtLocation inpMap x, getIndividualDirection x y)]
         getRawString inpMap (x:y:zs) = (getElementAtLocation inpMap x, getIndividualDirection x y): getRawString inpMap (y:zs) 
-        addDirectionStrings (mapElement, direction) = if isConditional mapElement then (mapElement, conditionalToString (mapElement, direction)) else (mapElement, show direction)
+        addDirectionStrings (mapElement, direction) = if isConditional mapElement then (mapElement, show (Conditional (mapElement, direction))) else (mapElement, show direction)
         appendDirections directions = unwords $ map snd directions
