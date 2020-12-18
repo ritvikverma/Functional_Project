@@ -2,13 +2,26 @@ module KodableUtils where
 
 import Data.List
 import Data.Maybe
+import System.Random
 
-data MapElement = PathBlock | Grass | Bonus | Target | Pink | Orange | Yellow | Ball | Invalid deriving (Eq)
-data Direction = Down | Up | Right | Left deriving (Eq, Show)
+import Control.Monad 
+
+
+data MapElement = PathBlock | Grass | Bonus | Target | Pink | Orange | Yellow | Ball | InvalidElement deriving (Eq)
+data Direction = Down | Up | Right | Left | InvalidDirection deriving (Eq, Show)
 type Map = [[MapElement]]
 type Conditional = (MapElement, Direction)
+type Function = (Direction, Direction, Direction)
+type Loop = (Int, Direction, Direction)
 type Location = (Int, Int)
 type Path = [Location]
+
+stringToDirection :: String -> Direction
+stringToDirection "Down" = Down
+stringToDirection "Up" = Up
+stringToDirection "Right" = KodableUtils.Right
+stringToDirection "Left" = KodableUtils.Left
+stringToDirection _ = InvalidDirection
 
 charToElement :: String -> MapElement
 charToElement "*" = Grass
@@ -19,7 +32,7 @@ charToElement "p" = Pink
 charToElement "o" = Orange
 charToElement "y" = Yellow
 charToElement "t" = Target
-charToElement  _  = Invalid
+charToElement  _  = InvalidElement
 
 instance Show MapElement where
     show Grass = "*"
@@ -37,6 +50,18 @@ conditionalToString (mapElement, direction) = "Cond{" ++ show mapElement ++ "}{"
 printMap :: Map -> String
 printMap [x] = unwords (map show x)
 printMap (x:xs) = unwords (map show x) ++ "\n" ++ printMap xs
+
+generateRow :: Int -> Int -> Int -> IO[MapElement]
+generateRow columns conditionals bonuses = do 
+    r <- randomIO
+    let moddedR = r `mod` 3
+    return $ replicate (ceiling (fromIntegral columns/2) - bonuses) Grass ++ replicate (floor (fromIntegral columns/2) - conditionals) PathBlock ++ replicate bonuses Bonus ++ replicate conditionals [Pink, Yellow, Orange] !! moddedR
+
+
+-- generateRandomMap :: Int -> Int -> Int -> Int -> Maybe Map
+-- generateRandomMap rows columns conditionals bonuses
+--     | conditionals+bonuses > rows*columns = Nothing
+--     | rows == 1 = generateRow
 
 isConditional :: MapElement -> Bool
 isConditional ele = ele `elem` [Yellow, Pink, Orange]

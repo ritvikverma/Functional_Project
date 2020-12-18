@@ -15,12 +15,12 @@ loadMap :: String -> (Maybe Map, String)
 loadMap content 
     | not $ all (== head wordsListLengths) (tail wordsListLengths) = (Nothing, "The map is not symmetrical") -- Lengths are not equal
     | length wordsListLengths == head wordsListLengths = (Nothing, "The map is not rectangular") -- Square map
-    | [Invalid] `elem` attemptedMap = (Nothing, "Invalid element found in map") -- Invalid element in map
+    | [InvalidElement] `elem` attemptedMap = (Nothing, "Invalid element found in map") -- Invalid element in map
     | isNothing $ getElementLocationInMap attemptedMap Ball = (Nothing, "No ball in map") -- No ball in map
     | isNothing $ getElementLocationInMap attemptedMap Target = (Nothing, "No target in map") -- No ball in map
     | otherwise = (Just attemptedMap, "")
     where
-        attemptedMap = [if Invalid `elem` map charToElement (words line) then [Invalid] else map charToElement (words line) | line <- lines content]
+        attemptedMap = [if InvalidElement `elem` map charToElement (words line) then [InvalidElement] else map charToElement (words line) | line <- lines content]
         wordsListLengths = [length $ words line | line <- lines content]
 
 
@@ -100,8 +100,52 @@ solve inpMap playerInp =
                                 putStrLn "This map is not solvable"
                 else
                     do
-                        putStrLn $ "No map loaded for " ++ head (words playerInp)
+                        putStrLn "No map loaded for solve"
         kodableMenu inpMap False    
+
+playInput :: Map -> Bool -> [Direction] -> IO()
+playInput inpMap firstTime directions = do
+    if firstTime && null directions then do
+        putStr "First Direction: "
+        playerInp <- getLine
+        if length (words playerInp) /= 1 || stringToDirection (head $ words playerInp) == InvalidDirection then do
+            putStrLn "Invalid arguments for first direction"
+            playInput inpMap True directions
+        else do
+            let inputtedValidDirection = stringToDirection (head $ words playerInp) 
+            playInput inpMap False (directions++[inputtedValidDirection])
+    else do
+        when (firstTime && not (null directions)) $ putStrLn "First Direction: Function"
+        putStr "Next direction: "
+        playerInp <- getLine
+        if null $ words playerInp then do
+            putStrLn ""
+            print directions
+        else if length (words playerInp) > 1 || stringToDirection (head $ words playerInp)  == InvalidDirection then do
+            putStrLn "Invalid arguments for direction"
+            playInput inpMap False directions
+        else do
+            let inputtedValidDirection = stringToDirection (head $ words playerInp) 
+            playInput inpMap False (directions++[inputtedValidDirection])    
+
+
+play :: Maybe Map -> String -> IO()
+play inpMap playerInp = 
+    do
+        if isNothing inpMap then do
+            putStrLn "No map loaded for play"
+            kodableMenu inpMap False
+        else if length (words playerInp) `notElem` [1,4] then do
+            putStrLn "Invalid number of arguments for play"
+            kodableMenu inpMap False          
+        else if length (words playerInp) == 4 && InvalidDirection `elem` map stringToDirection (tail (words playerInp)) then do
+            putStrLn "Invalid arguments for initial function call"
+            kodableMenu inpMap False
+        else if length (words playerInp) == 4 then do
+            playInput (fromJust inpMap) True (map stringToDirection (tail (words playerInp)))
+        else
+            playInput (fromJust inpMap) True []
+                
 
 kodableMenu :: Maybe Map -> Bool -> IO()
 kodableMenu inpMap playingFirstTime = do
@@ -130,6 +174,9 @@ kodableMenu inpMap playingFirstTime = do
 
     else if head (words playerInp) == "solve" then
         do solve inpMap playerInp
+    
+    else if head (words playerInp) == "play" then
+        do play inpMap playerInp
 
     else if length (words playerInp) /= 1 then
         do
