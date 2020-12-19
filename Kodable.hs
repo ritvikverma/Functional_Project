@@ -121,13 +121,12 @@ applyDirection inpMap direction nextDirection = do
     where
         (mapAfterNextMove, bonusesCollectedOnThisMove, hasWon) = move inpMap direction
 
-
-playGame :: Map -> [Direction] -> IO()
-playGame inpMap [] = do
+playGame :: Map -> Bool -> [Direction] -> [Direction] -> IO()
+playGame inpMap throughHint [] predefinedFunction = do
     putStrLn $ printMap inpMap
-    playInput inpMap False []    
-playGame inpMap [x] = do
-    (mapAfterDirection, hasWon) <- applyDirection inpMap x []
+    playInput inpMap False throughHint [] predefinedFunction 
+playGame inpMap throughHint (x:xs) predefinedFunction = do
+    (mapAfterDirection, hasWon) <- if null xs then applyDirection inpMap x [] else applyDirection inpMap x [head xs]
     if hasWon then do
         putStrLn "Congratulations! You win the game!"
         putStrLn $ printMap mapAfterDirection
@@ -136,48 +135,50 @@ playGame inpMap [x] = do
         putStrLn "Sorry! You have inputted an invalid move. "
         putStrLn "Your current board: "
         putStrLn $ printMap inpMap
-        playInput inpMap False []
+        playInput inpMap False False [] predefinedFunction
     else do
-        playGame mapAfterDirection []
-playGame inpMap (x:xs) = do
-    (mapAfterDirection, hasWon) <- applyDirection inpMap x [head xs]
-    if hasWon then do
-        putStrLn "Congratulations! You win the game!"
-        putStrLn $ printMap mapAfterDirection
-        kodableMenu Nothing True
-    else if mapAfterDirection == inpMap then do
-        putStrLn "Sorry! You have inputted an invalid move. "
-        putStrLn "Your current board: "
-        putStrLn $ printMap inpMap
-        playInput inpMap False []
-    else do
-        playGame mapAfterDirection xs
+        playGame mapAfterDirection throughHint xs predefinedFunction
 
-
-
-playInput :: Map -> Bool -> [Direction] -> IO()
-playInput inpMap firstTime directions = do
-    if firstTime && null directions then do
-        putStr "First Direction: "
-        playerInp <- getLine
-        if length (words playerInp) /= 1 || stringToDirection (head $ words playerInp) == InvalidDirection then do
-            putStrLn "Invalid arguments for first direction. Make sure you are complying with the rules of the game."
-            playInput inpMap True directions
+playInput :: Map -> Bool -> Bool -> [Direction] -> [Direction] -> IO()
+playInput inpMap firstTime throughHint directions predefinedFunction = do
+    let bonusesOnMap = getBonusOnMap inpMap
+    let allPaths = concat [getPathsToTargetWithBonuses inpMap bonusNumber (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0 | bonusNumber <- [0..bonusesOnMap]]
+    let pathsWithMaximumBonus = getPathsToTargetWithBonuses inpMap bonusesOnMap (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0
+    let shortestPath = sortOn length $ map (words . stringifyPath inpMap) allPaths
+    let pathWithMaxBonus = sortOn length $ map (words . stringifyPath inpMap) pathsWithMaximumBonus
+    if throughHint then do
+        if null pathWithMaxBonus then do
+            putStrLn "We cannot collect all bonuses at this point in this map"
+        else
+            putStrLn $ "If you want to collect the most bonuses, how about: " ++ head (head pathWithMaxBonus)
+        if null shortestPath then do
+            putStrLn "Error! Target is unreachable. "
+            kodableMenu Nothing True
         else do
-            let inputtedValidDirection = stringToDirection (head $ words playerInp) 
-            playInput inpMap False (directions++[inputtedValidDirection])
+            putStrLn $ "To reach the target fastest, how about: " ++ head (head shortestPath)
+        
+        playInput inpMap firstTime False directions predefinedFunction
     else do
-        when (firstTime && not (null directions)) $ putStrLn "First Direction: Function"
-        putStr "Next direction: "
+        when (firstTime && null directions) $ putStr "First direction: "
+        when (firstTime && not (null directions)) $ putStrLn "First direction: Function"
+        when (firstTime && not (null directions) || not firstTime) $ putStr "Next direction: "
         playerInp <- getLine
-        if null $ words playerInp then do
-            playGame inpMap (decodeDirections directions) 
+        if null playerInp then do
+            playGame inpMap False directions predefinedFunction
+        else if head (words playerInp) == "hint" then do
+            playGame inpMap True directions predefinedFunction
+        else if head (words playerInp) == "Function" then do
+            if null predefinedFunction then do
+                putStrLn "There is no predefined function."
+                playInput inpMap firstTime False directions predefinedFunction
+            else
+                playInput inpMap False False (directions++predefinedFunction) predefinedFunction
         else if length (words playerInp) > 1 || stringToDirection (head $ words playerInp)  == InvalidDirection then do
             putStrLn "Invalid arguments for direction. Make sure you are complying with the rules of the game."
-            playInput inpMap False directions
+            playInput inpMap firstTime False directions predefinedFunction
         else do
             let inputtedValidDirection = stringToDirection (head $ words playerInp) 
-            playInput inpMap False (directions++[inputtedValidDirection])  
+            playInput inpMap False False (directions++[inputtedValidDirection]) predefinedFunction
 
 
 play :: Maybe Map -> String -> IO()
@@ -186,16 +187,23 @@ play inpMap playerInp =
         if isNothing inpMap then do
             putStrLn "No map loaded for play"
             kodableMenu inpMap False
+        else if not $ isSolvable $ fromJust inpMap then do
+            putStrLn "This map is unsolvable!"
+            kodableMenu inpMap False
         else if length (words playerInp) `notElem` [1,4] then do
             putStrLn "Invalid number of arguments for play"
             kodableMenu inpMap False          
-        else if length (words playerInp) == 4 && InvalidDirection `elem` map stringToDirection (tail (words playerInp)) then do
-            putStrLn "Invalid arguments for initial function call"
-            kodableMenu inpMap False
         else if length (words playerInp) == 4 then do
-            playInput (fromJust inpMap) True (map stringToDirection (tail (words playerInp)))
+            if InvalidDirection `elem` map stringToDirection (tail (words playerInp)) then do
+                putStrLn "Invalid direction for function call"
+                kodableMenu inpMap False
+            else if any (isLoopElem . stringToDirection) (tail (words playerInp))  then do
+                putStrLn "A function cannot contain a loop inside"
+                kodableMenu inpMap False
+            else do
+                playInput (fromJust inpMap) True False (map stringToDirection (tail (words playerInp))) (map stringToDirection (tail (words playerInp)))
         else
-            playInput (fromJust inpMap) True []
+            playInput (fromJust inpMap) True False [] []
                 
 
 kodableMenu :: Maybe Map -> Bool -> IO()
@@ -238,9 +246,7 @@ kodableMenu inpMap playingFirstTime = do
         do
             if isJust inpMap then
                 do
-                    let validMap = fromJust inpMap
-                    let allPaths = concat [getPathsToTargetWithBonuses validMap bonusNumber (fromJust $ getElementLocationInMap validMap Ball) [] [] 0 | bonusNumber <- [0..getBonusOnMap validMap]]
-                    if not $ null allPaths then putStrLn "This map is solvable" else putStrLn "This map is not solvable"
+                    if isSolvable $ fromJust inpMap then putStrLn "This map is solvable" else putStrLn "This map is not solvable"
             else
                 do
                     putStrLn $ "No map loaded for " ++ head (words playerInp)

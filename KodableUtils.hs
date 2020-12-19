@@ -56,6 +56,10 @@ isConditionalElem :: Direction -> Bool
 isConditionalElem (ConditionalElem _) = True
 isConditionalElem _ = False
 
+isLoopElem :: Direction -> Bool
+isLoopElem (LoopElem _) = True
+isLoopElem _ = False
+
 fromConditionalElem :: Direction -> (MapElement, Direction)
 fromConditionalElem (ConditionalElem (Conditional (mapElement, direction))) = (mapElement, direction)
 fromConditionalElem _ = (InvalidElement, InvalidDirection)
@@ -133,12 +137,18 @@ neighbours inpMap (a, b) = [(x,y) | (x,y) <- existingNeighbours, booledMap !! x 
 inBoard :: Map -> Location -> Bool
 inBoard inpMap (a,b) = a >= 0 && a < length inpMap && b >= 0 && b < length(head inpMap)
 
+isSolvable :: Map -> Bool
+isSolvable inpMap = not $ null allPaths
+    where
+        allPaths = concat [getPathsToTargetWithBonuses inpMap bonusNumber (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0 | bonusNumber <- [0..getBonusOnMap inpMap]]
+
 move :: Map -> Direction -> (Map, Int, Bool)
 move inpMap direction
     | direction == Up && inBoard inpMap (ballRow - 1, ballColumn) && getElementAtLocation inpMap (ballRow - 1, ballColumn) `elem` movableElements = makeMove (ballRow - 1, ballColumn)
     | direction == Down && inBoard inpMap (ballRow + 1, ballColumn) && getElementAtLocation inpMap (ballRow + 1, ballColumn) `elem` movableElements = makeMove (ballRow + 1, ballColumn)
     | direction == KodableUtils.Right && inBoard inpMap (ballRow, ballColumn + 1) && getElementAtLocation inpMap (ballRow, ballColumn + 1) `elem` movableElements = makeMove (ballRow, ballColumn + 1)
     | direction == KodableUtils.Left && inBoard inpMap (ballRow, ballColumn - 1) && getElementAtLocation inpMap (ballRow, ballColumn - 1) `elem` movableElements = makeMove (ballRow, ballColumn - 1)
+    | isConditionalElem direction = move inpMap $ snd (fromConditionalElem direction)
     | otherwise = (inpMap, 0, False)
     where
         (ballRow, ballColumn) = fromJust (getElementLocationInMap inpMap Ball)
@@ -146,7 +156,9 @@ move inpMap direction
             | getElementAtLocation inpMap targetPosition == Bonus = (swapPositions (ballRow, ballColumn) targetPosition, 1, False)
             | getElementAtLocation inpMap targetPosition == Target = (swapPositions (ballRow, ballColumn) targetPosition, 0, True)
             | otherwise =  (swapPositions (ballRow, ballColumn) targetPosition, 0, False)
-        swapPositions ballPosition targetPosition = putElemAtLocation (putElemAtLocation inpMap targetPosition Ball) ballPosition PathBlock
+        swapPositions ballPosition targetPosition
+            | getElementAtLocation inpMap targetPosition `elem` [Bonus, Target] = putElemAtLocation (putElemAtLocation inpMap targetPosition Ball) ballPosition PathBlock
+            | otherwise = putElemAtLocation (putElemAtLocation inpMap targetPosition Ball) ballPosition (getElementAtLocation inpMap targetPosition)
         movableElements = [PathBlock, Pink, Orange, Yellow, Bonus, Target]
 
 
