@@ -52,6 +52,14 @@ instance Show Function where
 instance Show Loop where
     show (Loop (n, direction1, direction2)) = "Loop{" ++ show n ++ "}{" ++ show direction1 ++ "," ++ show direction2 ++ "}"
 
+isConditionalElem :: Direction -> Bool
+isConditionalElem (ConditionalElem _) = True
+isConditionalElem _ = False
+
+fromConditionalElem :: Direction -> (MapElement, Direction)
+fromConditionalElem (ConditionalElem (Conditional (mapElement, direction))) = (mapElement, direction)
+fromConditionalElem _ = (InvalidElement, InvalidDirection)
+
 stringToDirection :: String -> Direction
 stringToDirection inpString
     | inpString == "Down" = Down
@@ -142,6 +150,15 @@ move inpMap direction
         movableElements = [PathBlock, Pink, Orange, Yellow, Bonus, Target]
 
 
+getNextElementInDirection :: Map -> Direction -> Maybe MapElement
+getNextElementInDirection inpMap direction
+    | direction == Up && inBoard inpMap (ballRow - 1, ballColumn) = Just $ getElementAtLocation inpMap (ballRow - 1, ballColumn)
+    | direction == Down && inBoard inpMap (ballRow + 1, ballColumn) = Just $ getElementAtLocation inpMap (ballRow + 1, ballColumn)
+    | direction == KodableUtils.Right && inBoard inpMap (ballRow, ballColumn + 1) = Just $ getElementAtLocation inpMap (ballRow, ballColumn + 1)
+    | direction == KodableUtils.Left && inBoard inpMap (ballRow, ballColumn - 1) = Just $ getElementAtLocation inpMap (ballRow, ballColumn - 1)
+    | otherwise = Nothing
+    where
+        (ballRow, ballColumn) = fromJust (getElementLocationInMap inpMap Ball)
 
 neighboursInDirection :: Map -> Location -> Location -> [Location]
 neighboursInDirection inpMap (parentX, parentY) (currX, currY)

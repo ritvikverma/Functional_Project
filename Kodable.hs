@@ -91,10 +91,10 @@ solve inpMap playerInp =
                                 if not $ null pathsWithMaximumBonuses then
                                     do
                                         putStrLn $ "The shortest path with all the bonus(es) is: " ++ unwords (head $ sortOn length $ map (words . stringifyPath unJustMap) pathsWithMaximumBonuses)
-                                        putStrLn $ "The bonus(es) on this path are: " ++ show (getBonusOnMap unJustMap)
+                                        putStrLn $ "The bonus(es) on this path are: " ++ show bonusesOnMap
                                 else
                                     do
-                                        putStrLn $ "There is no path where we can collect all " ++ show (getBonusOnMap unJustMap) ++ " bonus(es) on this map"
+                                        putStrLn $ "There is no path where we can collect all " ++ show bonusesOnMap ++ " bonus(es) on this map"
                         else
                             do
                                 putStrLn "This map is not solvable"
@@ -104,12 +104,20 @@ solve inpMap playerInp =
         kodableMenu inpMap False    
 
 
-applyDirection :: Map -> Direction -> IO(Map, Bool)
-applyDirection inpMap direction = do
+applyDirection :: Map -> Direction -> [Direction] -> IO(Map, Bool)
+applyDirection inpMap direction nextDirection = do
     when (bonusesCollectedOnThisMove > 0) $ putStrLn (show bonusesCollectedOnThisMove ++ " bonu(es) collected! ")
     if hasWon then return (mapAfterNextMove, True)
     else if mapAfterNextMove == inpMap then return (mapAfterNextMove, hasWon)
-    else applyDirection mapAfterNextMove direction
+    else if not (null nextDirection) && isConditionalElem (head nextDirection) then do
+        let (mapElementOfConditional, directionOfConditional) = fromConditionalElem (head nextDirection)
+        let nextElementInDirection = getNextElementInDirection inpMap direction
+        if nextElementInDirection == Just mapElementOfConditional then do
+            applyDirection mapAfterNextMove directionOfConditional nextDirection
+        else do
+            applyDirection mapAfterNextMove direction nextDirection
+    else 
+        applyDirection mapAfterNextMove direction nextDirection
     where
         (mapAfterNextMove, bonusesCollectedOnThisMove, hasWon) = move inpMap direction
 
@@ -118,8 +126,21 @@ playGame :: Map -> [Direction] -> IO()
 playGame inpMap [] = do
     putStrLn $ printMap inpMap
     playInput inpMap False []    
+playGame inpMap [x] = do
+    (mapAfterDirection, hasWon) <- applyDirection inpMap x []
+    if hasWon then do
+        putStrLn "Congratulations! You win the game!"
+        putStrLn $ printMap mapAfterDirection
+        kodableMenu Nothing True
+    else if mapAfterDirection == inpMap then do
+        putStrLn "Sorry! You have inputted an invalid move. "
+        putStrLn "Your current board: "
+        putStrLn $ printMap inpMap
+        playInput inpMap False []
+    else do
+        playGame mapAfterDirection []
 playGame inpMap (x:xs) = do
-    (mapAfterDirection, hasWon) <- applyDirection inpMap x
+    (mapAfterDirection, hasWon) <- applyDirection inpMap x [head xs]
     if hasWon then do
         putStrLn "Congratulations! You win the game!"
         putStrLn $ printMap mapAfterDirection
@@ -217,7 +238,8 @@ kodableMenu inpMap playingFirstTime = do
         do
             if isJust inpMap then
                 do
-                    let allPaths = concat [getPathsToTargetWithBonuses (fromJust inpMap) bonusNumber (fromJust $ getElementLocationInMap (fromJust inpMap) Ball) [] [] 0 | bonusNumber <- [0..getBonusOnMap (fromJust inpMap)]]
+                    let validMap = fromJust inpMap
+                    let allPaths = concat [getPathsToTargetWithBonuses validMap bonusNumber (fromJust $ getElementLocationInMap validMap Ball) [] [] 0 | bonusNumber <- [0..getBonusOnMap validMap]]
                     if not $ null allPaths then putStrLn "This map is solvable" else putStrLn "This map is not solvable"
             else
                 do
