@@ -1,6 +1,7 @@
 module Kodable where
 
 import Data.List
+import KodableData
 import Data.Maybe
 import System.Directory
 import Data.Char
@@ -8,10 +9,12 @@ import System.IO
 import KodableUtils
 import Control.Monad
 
-kodable :: IO ()
+import Prelude
+
+kodable :: IO () -- Introductory function, takes you to the main menu
 kodable = kodableMenu Nothing True
 
-loadMap :: String -> (Maybe Map, String)
+loadMap :: String -> (Maybe Map, String) -- Loads the map, returns Nothing if could not load, with reason
 loadMap content 
     | not $ all (== head wordsListLengths) (tail wordsListLengths) = (Nothing, "The map is not symmetrical") -- Lengths are not equal
     | length wordsListLengths == head wordsListLengths = (Nothing, "The map is not rectangular") -- Square map
@@ -23,8 +26,7 @@ loadMap content
         attemptedMap = [if InvalidElement `elem` map charToElement (words line) then [InvalidElement] else map charToElement (words line) | line <- lines content]
         wordsListLengths = [length $ words line | line <- lines content]
 
-
-load :: Maybe Map -> String -> IO()
+load :: Maybe Map -> String -> IO() -- Menu function for loading assistance
 load inpMap playerInp =
     if length (words playerInp) /= 2 then
         do
@@ -53,7 +55,7 @@ load inpMap playerInp =
                     putStrLn $ "File " ++ fileName ++ " does not exist!"
                     kodableMenu inpMap False
 
-solve :: Maybe Map -> String -> IO()
+solve :: Maybe Map -> String -> IO() -- Menu function for solving assistance
 solve inpMap playerInp = 
     do
         if null (words playerInp) || length (words playerInp) > 2 then 
@@ -103,8 +105,7 @@ solve inpMap playerInp =
                         putStrLn "No map loaded for solve"
         kodableMenu inpMap False    
 
-
-applyDirection :: Map -> Direction -> [Direction] -> IO(Map, Bool)
+applyDirection :: Map -> Direction -> [Direction] -> IO(Map, Bool) -- Applies the direction and returns the updated map and if we have won
 applyDirection inpMap direction nextDirection = do
     when (bonusesCollectedOnThisMove > 0) $ putStrLn (show bonusesCollectedOnThisMove ++ " bonu(es) collected! ")
     if hasWon then return (mapAfterNextMove, True)
@@ -121,7 +122,7 @@ applyDirection inpMap direction nextDirection = do
     where
         (mapAfterNextMove, bonusesCollectedOnThisMove, hasWon) = move inpMap direction
 
-playGame :: Map -> Bool -> [Direction] -> [Direction] -> IO()
+playGame :: Map -> Bool -> [Direction] -> [Direction] -> IO() -- Plays the game if we enter play in the menu
 playGame inpMap throughHint [] predefinedFunction = do
     putStrLn $ printMap inpMap
     playInput inpMap False throughHint [] predefinedFunction 
@@ -139,7 +140,7 @@ playGame inpMap throughHint (x:xs) predefinedFunction = do
     else do
         playGame mapAfterDirection throughHint xs predefinedFunction
 
-playInput :: Map -> Bool -> Bool -> [Direction] -> [Direction] -> IO()
+playInput :: Map -> Bool -> Bool -> [Direction] -> [Direction] -> IO() -- Input function for play 
 playInput inpMap firstTime throughHint directions predefinedFunction = do
     let bonusesOnMap = getBonusOnMap inpMap
     let allPaths = concat [getPathsToTargetWithBonuses inpMap bonusNumber (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0 | bonusNumber <- [0..bonusesOnMap]]
@@ -180,8 +181,7 @@ playInput inpMap firstTime throughHint directions predefinedFunction = do
             let inputtedValidDirection = stringToDirection (head $ words playerInp) 
             playInput inpMap False False (directions++[inputtedValidDirection]) predefinedFunction
 
-
-play :: Maybe Map -> String -> IO()
+play :: Maybe Map -> String -> IO() -- Argument handling function for play
 play inpMap playerInp = 
     do
         if isNothing inpMap then do
@@ -204,9 +204,8 @@ play inpMap playerInp =
                 playInput (fromJust inpMap) True False (map stringToDirection (tail (words playerInp))) (map stringToDirection (tail (words playerInp)))
         else
             playInput (fromJust inpMap) True False [] []
-                
 
-kodableMenu :: Maybe Map -> Bool -> IO()
+kodableMenu :: Maybe Map -> Bool -> IO() -- Main menu of our Kodable game
 kodableMenu inpMap playingFirstTime = do
     putStrLn " "
     when playingFirstTime $ putStrLn "Welcome to Kodable!"
