@@ -1,4 +1,4 @@
-module Kodable where
+module Main where
 
 -- This file is the menu and the user interface for hints, play, quit, solve, and check
 
