@@ -124,18 +124,6 @@ getIndividualDirection (parentRow, parentColumn) (currRow, currColumn) -- Gets t
     | parentColumn - currColumn == 1 = Left -- Going left
     | parentColumn - currColumn == -1 = Right -- Going right
 
-getRawString :: Map -> [Location] -> [(MapElement, Direction)]
-getRawString inpMap [x,y] = [(getElementAtLocation inpMap x, getIndividualDirection x y)]
-getRawString inpMap (x:y:zs) = (getElementAtLocation inpMap x, getIndividualDirection x y): getRawString inpMap (y:zs) 
-
-getReducedArray :: [(MapElement, Direction)] -> [(MapElement, Direction)] 
-getReducedArray [x] = [x]
-getReducedArray [x,y] = if snd x/= snd y then x:[y] else [x]
-getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else getReducedArray (y:zs)
-
-addDirectionStrings :: (MapElement, Direction) -> (MapElement, Direction)
-addDirectionStrings (mapElement, direction) = if isColour mapElement then (mapElement, Conditional (mapElement, direction)) else (mapElement, direction)
-
 createLoops :: [Direction] -> [Direction] -- Generates loops on set of directions
 createLoops stack
   | length stack < 4 = stack
@@ -201,15 +189,9 @@ shortestPath inpMap pathList = shortestCompressedPath
     where
         compressedPath path = getCompressedPath (map (snd . addDirectionStrings) $ reverse(getReducedArray(reverse (getRawString inpMap path))))
         shortestCompressedPath = head $ sortOn length $ [compressedPath uncompressedPath | uncompressedPath <- pathList]
-
-helper :: IO()
-helper = do
-    handle <- openFile "testmap.txt" ReadMode
-    contents <- hGetContents handle
-    let inpMap = fromJust $ fst $ loadMap contents
-    let bonusesOnMap = getBonusOnMap inpMap
-    let pathsWithMaximumBonuses = getPathsToTargetWithBonuses inpMap bonusesOnMap (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0
-    let pathWithMaximumBonus = last $ sortOn length pathsWithMaximumBonuses
-    putStrLn $ stringifyPath $ shortestPath inpMap pathsWithMaximumBonuses
-    putStrLn $ hintyPath $ shortestPath inpMap pathsWithMaximumBonuses
-    hClose handle
+        getRawString inpMap [x,y] = [(getElementAtLocation inpMap x, getIndividualDirection x y)]
+        getRawString inpMap (x:y:zs) = (getElementAtLocation inpMap x, getIndividualDirection x y): getRawString inpMap (y:zs) 
+        getReducedArray [x] = [x]
+        getReducedArray [x,y] = if snd x/= snd y then x:[y] else [x]
+        getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else getReducedArray (y:zs)
+        addDirectionStrings (mapElement, direction) = if isColour mapElement then (mapElement, Conditional (mapElement, direction)) else (mapElement, direction)
