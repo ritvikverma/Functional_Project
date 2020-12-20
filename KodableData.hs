@@ -31,10 +31,6 @@ instance Show Direction where -- Show override for Directions
     show (Function (direction1, direction2, direction3)) = "with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
     show InvalidDirection = "Invalid"
 
-printMap :: Map -> String -- Takes a map, and prints it
-printMap [x] = unwords (map show x)
-printMap (x:xs) = unwords (map show x) ++ "\n" ++ printMap xs
-
 isConditional :: Direction -> Bool -- Tells whether this direction is a Conditional
 isConditional (Conditional _) = True
 isConditional _ = False

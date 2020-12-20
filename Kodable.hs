@@ -12,7 +12,47 @@ import KodableUtils
 import Control.Monad
 import Control.Concurrent
 
+import System.Console.ANSI
+
 import Prelude hiding (Left, Right)
+
+printMapElement :: MapElement -> IO()
+printMapElement mapElement = do
+    if mapElement == Grass then do 
+        setSGR [SetColor Foreground Vivid Green]
+    else if mapElement == PathBlock then do
+        setSGR [SetColor Foreground Vivid Blue]
+    else if mapElement == Bonus then do
+        setSGR [SetColor Foreground Vivid Red]
+    else if mapElement == Ball then do
+        setSGR [SetColor Foreground Vivid White]
+    else if mapElement == Pink then do
+        setSGR [SetColor Foreground Vivid Magenta]
+    else if mapElement == Orange then do
+        setSGR [SetColor Foreground Dull System.Console.ANSI.Yellow]
+    else if mapElement == KodableData.Yellow then do
+        setSGR [SetColor Foreground Vivid System.Console.ANSI.Yellow]
+    else if mapElement == Target then do
+        setSGR [SetColor Foreground Vivid Cyan]
+    else do
+        setSGR [Reset]        
+    putStr $ show mapElement ++ " "
+
+printRow :: [MapElement] -> IO()
+printRow [x] = printMapElement x
+printRow (x:xs) = do
+    printMapElement x
+    printRow xs
+
+printMap :: Map -> IO()
+printMap [x] = do
+    printRow x
+    putStrLn " "
+    setSGR [Reset]
+printMap (x:xs) = do
+    printRow x
+    putStrLn " "
+    printMap xs
 
 kodable :: IO () -- Introductory function, takes you to the main menu
 kodable = kodableMenu Nothing True
@@ -38,7 +78,7 @@ load inpMap playerInp =
                         playableMap -> do
                             putStrLn "Read map successfully!"
                             putStrLn "Initial: "
-                            putStrLn $ printMap (fromJust playableMap)
+                            printMap (fromJust playableMap)
                             kodableMenu playableMap False
                     hClose handle                            
             else                        
@@ -98,8 +138,8 @@ solve inpMap playerInp =
 
 applyDirection :: Map -> Direction -> [Direction] -> IO(Map, Bool) -- Applies the direction and returns the updated map and if we have won
 applyDirection inpMap direction nextDirection = do
-    putStr "\ESC[2J"
-    putStrLn $ printMap inpMap
+    clearScreen
+    printMap inpMap
     putStrLn " "
     threadDelay 100000
     when (bonusesCollectedOnThisMove > 0) $ putStrLn (show bonusesCollectedOnThisMove ++ " bonu(es) collected! ")
@@ -123,13 +163,13 @@ playGame inpMap throughHint [] predefinedFunction = do
 playGame inpMap throughHint (x:xs) predefinedFunction = do
     (mapAfterDirection, hasWon) <- if null xs then applyDirection inpMap x [] else applyDirection inpMap x [head xs]
     if hasWon then do
-        putStrLn $ printMap mapAfterDirection
+        printMap mapAfterDirection
         putStrLn "Congratulations! You win the game!"
         kodableMenu Nothing True
     else if mapAfterDirection == inpMap then do
         putStrLn "Sorry! You have inputted an invalid move. "
         putStrLn "Your current board: "
-        putStrLn $ printMap inpMap
+        printMap inpMap
         playInput inpMap False False [] predefinedFunction
     else do
         playGame mapAfterDirection throughHint xs predefinedFunction
@@ -251,16 +291,3 @@ kodableMenu inpMap playingFirstTime = do
     else
         do
             kodableMenu inpMap False
-
-
-animate :: IO()
-animate = do
-    handle <- openFile "testmap.txt" ReadMode
-    contents <- hGetContents handle
-    let inpMap = fromJust $ fst $ loadMap contents
-    let bonusesOnMap = getBonusOnMap inpMap
-    let pathsWithMaximumBonuses = concat [getPathsToTargetWithBonuses inpMap bonus (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0 | bonus <- [0..bonusesOnMap]]
-    let bestPath = shortestPath inpMap pathsWithMaximumBonuses
-    let decodedBestPath = decodeDirections bestPath
-    playGame inpMap False decodedBestPath [] 
-    hClose handle
