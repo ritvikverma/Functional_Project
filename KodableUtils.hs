@@ -24,8 +24,8 @@ loadMap content
         attemptedMap = [if InvalidElement `elem` map charToElement (words line) then [InvalidElement] else map charToElement (words line) | line <- lines content]
         wordsListLengths = [length $ words line | line <- lines content]
 
-isConditional :: MapElement -> Bool -- Is this map element one of the conditionals? 
-isConditional ele = ele `elem` [Yellow, Pink, Orange]
+isColour :: MapElement -> Bool -- Is this map element one of the conditionals? 
+isColour ele = ele `elem` [Yellow, Pink, Orange]
 
 getElementLocationInMap :: Map -> MapElement -> Maybe Location -- Which location is this element at in this map? 
 getElementLocationInMap map ele = if null res then Nothing else Just (snd(head res), fromJust (fst $ head res))
@@ -49,7 +49,7 @@ move inpMap direction
     | direction == Down && inBoard inpMap (ballRow + 1, ballColumn) && getElementAtLocation inpMap (ballRow + 1, ballColumn) `elem` movableElements = makeMove (ballRow + 1, ballColumn)
     | direction == Right && inBoard inpMap (ballRow, ballColumn + 1) && getElementAtLocation inpMap (ballRow, ballColumn + 1) `elem` movableElements = makeMove (ballRow, ballColumn + 1)
     | direction == Left && inBoard inpMap (ballRow, ballColumn - 1) && getElementAtLocation inpMap (ballRow, ballColumn - 1) `elem` movableElements = makeMove (ballRow, ballColumn - 1)
-    | isConditionalElem direction = move inpMap $ snd (fromConditionalElem direction)
+    | isConditional direction = move inpMap $ snd (fromConditional direction)
     | otherwise = (inpMap, 0, False)
     where
         (ballRow, ballColumn) = fromJust (getElementLocationInMap inpMap Ball)
@@ -98,7 +98,7 @@ getPathsToTargetWithBonuses inpMap requiredBonuses currNode currPath alreadyVisi
             | otherwise = [nextNode]
             where
                 nextNode = getNextInDirection (parentX, parentY) (currX, currY)
-                currentIsCondition = isConditional (getElementAtLocation inpMap (currX, currY))
+                currentIsCondition = isColour (getElementAtLocation inpMap (currX, currY))
                 hasReachedEnd = not (inBoard inpMap nextNode) || getElementAtLocation inpMap (getNextInDirection (parentX, parentY) (currX, currY)) == Grass
                 getNextInDirection (parentRow, parentColumn) (currRow, currColumn) -- Returns the locations of the neighbours that are in the ball's direction
                     | parentRow - currRow == 1 = (currRow - 1 , currColumn) -- Going up
@@ -112,8 +112,8 @@ getBonusOnMap inpMap = sum [length $ filter (==Bonus) row | row <- inpMap]
 decodeDirections :: [Direction] -> [Direction] -- Simplifies the user inputted directions to sequential directions
 decodeDirections = concatMap decodeDirection
     where
-        decodeDirection (FunctionElem (Function(direction1, direction2, direction3))) = [direction1, direction2, direction3]
-        decodeDirection (LoopElem (Loop(n, direction1, direction2))) = concat $ replicate n [direction1, direction2]
+        decodeDirection (Function(direction1, direction2, direction3)) = [direction1, direction2, direction3]
+        decodeDirection (Loop(n, direction1, direction2)) = concat $ replicate n [direction1, direction2]
         decodeDirection direction = [direction]
 
 getIndividualDirection :: Location -> Location -> Direction
@@ -133,8 +133,7 @@ getReducedArray [x,y] = if snd x/= snd y then x:[y] else [x]
 getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else getReducedArray (y:zs)
 
 addDirectionStrings :: (MapElement, Direction) -> (MapElement, Direction)
-addDirectionStrings (mapElement, direction) = if isConditional mapElement then (mapElement, ConditionalElem (Conditional (mapElement, direction))) else (mapElement, direction)
-
+addDirectionStrings (mapElement, direction) = if isColour mapElement then (mapElement, Conditional (mapElement, direction)) else (mapElement, direction)
 
 loopAccumulator :: (Direction, Direction) -> [Direction] -> Int -> (Int, [Direction])
 loopAccumulator (action1, action2) stack count
@@ -149,20 +148,20 @@ createLoops stack
     action1 = head stack
     action2 = stack !! 1
     (loopCount, remList) = loopAccumulator (action1, action2) (drop 4 stack) 2
-    result = LoopElem (Loop (loopCount, action1, action2)) : createLoops remList
+    result = Loop (loopCount, action1, action2) : createLoops remList
 
 createFunctions :: [Direction] -> [Direction]
 createFunctions [a, b] = [a, b]
 createFunctions [a] = [a]
 createFunctions [] = []
-createFunctions (LoopElem (Loop (x1, a1, a2)) : b : c : remList) = LoopElem (Loop (x1, a1, a2)) : createFunctions (b : c : remList)
-createFunctions (b :LoopElem (Loop (x1, a1, a2)) : c : remList) = [b, LoopElem (Loop (x1, a1, a2))] ++ createFunctions (c : remList)
-createFunctions (b : c : LoopElem (Loop (x1, a1, a2)) : remList) = [b, c, LoopElem (Loop (x1, a1, a2))] ++ createFunctions remList
-createFunctions (a : b : c : remList) = FunctionElem (Function (a, b, c)) : createFunctions (b : c : remList)
+createFunctions (Loop (x1, a1, a2) : b : c : remList) = Loop (x1, a1, a2) : createFunctions (b : c : remList)
+createFunctions (b : Loop (x1, a1, a2) : c : remList) = [b, Loop (x1, a1, a2)] ++ createFunctions (c : remList)
+createFunctions (b : c : Loop (x1, a1, a2) : remList) = [b, c, Loop (x1, a1, a2)] ++ createFunctions remList
+createFunctions (a : b : c : remList) = Function (a, b, c) : createFunctions (b : c : remList)
 
 extractFunctions :: [Direction] -> [Direction]
 extractFunctions [] = []
-extractFunctions (FunctionElem (Function (a, b, c)) : remList) = FunctionElem (Function (a, b, c)) : extractFunctions remList
+extractFunctions (Function (a, b, c) : remList) = Function (a, b, c) : extractFunctions remList
 extractFunctions (x : remList) = extractFunctions remList
 
 mostFreqFunction :: [Direction] -> Direction
@@ -175,7 +174,7 @@ replaceWithFunction directions fn
   | length directions < 3 = directions
   | otherwise = if head directions == a && directions !! 1 == b && directions !! 2 == c then fn : replaceWithFunction (drop 3 directions) fn else head directions : replaceWithFunction (tail directions) fn
   where
-    FunctionElem (Function (a, b, c)) = fn
+    Function (a, b, c) = fn
 
 addFunctionToPath :: [Direction] -> [Direction]
 addFunctionToPath directions = if null functions then directions else replaceWithFunction directions (mostFreqFunction functions)

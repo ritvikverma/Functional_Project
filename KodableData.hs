@@ -6,16 +6,10 @@ import Parser
 import Prelude hiding (Left, Right)
 
 data MapElement = PathBlock | Grass | Bonus | Target | Pink | Orange | Yellow | Ball | InvalidElement deriving (Eq)
-data Direction = Down | Up | Right | Left | ConditionalElem Conditional | LoopElem Loop | FunctionElem Function | InvalidDirection deriving (Eq)
-newtype Conditional = Conditional (MapElement, Direction) deriving (Eq)
-newtype Function = Function (Direction, Direction, Direction) deriving (Eq)
-newtype Loop = Loop (Int, Direction, Direction) deriving (Eq)
+data Direction = Down | Up | Right | Left | Conditional (MapElement, Direction) | Loop (Int, Direction, Direction) | Function (Direction, Direction, Direction) | InvalidDirection deriving (Eq)
 type Map = [[MapElement]]
 type Location = (Int, Int)
 type Path = [Location]
-
-instance Show Conditional where -- Show override for Conditionals
-    show (Conditional (mapElement, direction)) = "Cond{" ++ show mapElement ++ "}{" ++ show direction ++ "}"
 
 instance Show MapElement where -- Show override for MapElements
     show Grass = "*"
@@ -32,33 +26,26 @@ instance Show Direction where -- Show override for Directions
     show Up = "Up"
     show Right = "Right"
     show Left = "Left"
-    show (ConditionalElem c) = show c
-    show (LoopElem l) = show l
-    show (FunctionElem f) = show f
-    show InvalidDirection = "Invalid"
-
-instance Show Function where -- Show override for Functions
-    show (Function (direction1, direction2, direction3)) = "Function with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
-
-instance Show Loop where -- Show override for Loops
+    show (Conditional (mapElement, direction)) = "Cond{" ++ show mapElement ++ "}{" ++ show direction ++ "}"
     show (Loop (n, direction1, direction2)) = "Loop{" ++ show n ++ "}{" ++ show direction1 ++ "," ++ show direction2 ++ "}"
-
+    show (Function (direction1, direction2, direction3)) = "Function with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
+    show InvalidDirection = "Invalid"
 
 printMap :: Map -> String -- Takes a map, and prints it
 printMap [x] = unwords (map show x)
 printMap (x:xs) = unwords (map show x) ++ "\n" ++ printMap xs
 
-isConditionalElem :: Direction -> Bool -- Tells whether this direction is a ConditionalElem
-isConditionalElem (ConditionalElem _) = True
-isConditionalElem _ = False
+isConditional :: Direction -> Bool -- Tells whether this direction is a ConditionalElem
+isConditional (Conditional _) = True
+isConditional _ = False
 
-isLoopElem :: Direction -> Bool -- Tells whether this direction is a LoopElem
-isLoopElem (LoopElem _) = True
-isLoopElem _ = False
+isLoop :: Direction -> Bool -- Tells whether this direction is a LoopElem
+isLoop (Loop _) = True
+isLoop _ = False
 
-fromConditionalElem :: Direction -> (MapElement, Direction) -- Retreives the tuple contained within the ConditionalElem
-fromConditionalElem (ConditionalElem (Conditional (mapElement, direction))) = (mapElement, direction)
-fromConditionalElem _ = (InvalidElement, InvalidDirection)
+fromConditional :: Direction -> (MapElement, Direction) -- Retreives the tuple contained within the ConditionalElem
+fromConditional ((Conditional (mapElement, direction))) = (mapElement, direction)
+fromConditional _ = (InvalidElement, InvalidDirection)
 
 stringToDirection :: String -> Direction -- Takes a string, and returns the corresponding direction after running parsers if needed
 stringToDirection inpString
@@ -66,14 +53,14 @@ stringToDirection inpString
     | inpString == "Up" = Up
     | inpString == "Right" = Right
     | inpString == "Left" = Left
-    | runParser conditionalParser inpString /=[] = ConditionalElem (fst(head(runParser conditionalParser inpString)))
-    | runParser loopParser inpString /=[] = LoopElem (fst(head(runParser loopParser inpString)))
+    | runParser conditionalParser inpString /=[] = fst(head(runParser conditionalParser inpString))
+    | runParser loopParser inpString /=[] = fst(head(runParser loopParser inpString))
     | otherwise = InvalidDirection
 
 simpleDirectionParser :: Parser String -- Runs a series of string parsers to check if this direction is valid
 simpleDirectionParser = string "Down" +++ string "Up" +++ string "Left" +++ string "Right"
 
-conditionalParser :: Parser Conditional -- Runs a series of string parsers to check if this is a valid condition
+conditionalParser :: Parser Direction -- Runs a series of string parsers to check if this is a valid condition
 conditionalParser = do
     string "Cond{"
     colour <- string "p" +++ string "y" +++ string "o"
@@ -82,7 +69,7 @@ conditionalParser = do
     string "}"
     return $ Conditional (charToElement colour, stringToDirection direction)
  
-loopParser :: Parser Loop -- Runs a series of string parsers to check if this a valid loop
+loopParser :: Parser Direction -- Runs a series of string parsers to check if this a valid loop
 loopParser = do
     string "Loop{"
     number <- string "0" +++ string "1" +++ string "2" +++ string "3" +++ string "4" +++ string "5"
