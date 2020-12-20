@@ -82,8 +82,8 @@ getPathsToTargetWithBonuses :: Map -> Int -> Location -> Path -> [(Location, Int
 getPathsToTargetWithBonuses inpMap requiredBonuses currNode currPath alreadyVisitedWithBonusCount bonusesCollected
     | getElementAtLocation inpMap currNode == Target && bonusesCollected==requiredBonuses = [currPath++[currNode]] -- Base case where we have found the target and have visited the max bonus(es)
     | getElementAtLocation inpMap currNode == Target = [] -- We cannot pass by the target and come back again
-    | getElementAtLocation inpMap currNode == Bonus = concat [getPathsToTargetWithBonuses (putElemAtLocation inpMap currNode PathBlock) requiredBonuses newNeighbour (currPath++[currNode]) (alreadyVisitedWithBonusCount ++ [(currNode, bonusesCollected+1)]) (bonusesCollected+1) | newNeighbour <- newNeighbours] -- Increase bonus
-    | newNeighboursWithBonusCounts `intersect` alreadyVisitedWithBonusCount == newNeighboursWithBonusCounts = [] -- Base case where we have already traversed the neighbours, with the same bonus count. No incentive to re-traverse
+    | getElementAtLocation inpMap currNode == Bonus = concat [getPathsToTargetWithBonuses (putElemAtLocation inpMap currNode PathBlock) requiredBonuses newNeighbour (currPath++[currNode]) (alreadyVisitedWithBonusCount ++ [(currNode, bonusesCollected)]) (bonusesCollected+1) | newNeighbour <- newNeighbours] -- Increase bonus
+    | (newNeighboursWithBonusCounts `intersect` alreadyVisitedWithBonusCount) == newNeighboursWithBonusCounts = [] -- Base case where we have already traversed the neighbours, with the same bonus count. No incentive to re-traverse
     | otherwise = concat [getPathsToTargetWithBonuses inpMap requiredBonuses newNeighbour (currPath++[currNode]) (alreadyVisitedWithBonusCount ++ [(currNode, bonusesCollected)]) bonusesCollected | newNeighbour <- newNeighbours] 
     where
         neighbours inpMap (a, b) = [(x,y) | (x,y) <- existingNeighbours, booledMap !! x !! y]
