@@ -16,10 +16,10 @@ import System.Console.ANSI
 
 import Prelude hiding (Left, Right)
 
-printMapElement :: MapElement -> IO()
+printMapElement :: MapElement -> IO() -- Prints the MapElemen nicely in colour
 printMapElement mapElement = do
     if mapElement == Grass then do 
-        setSGR [SetColor Foreground Vivid Green]
+        setSGR [SetColor Foreground Dull Green]
     else if mapElement == PathBlock then do
         setSGR [SetColor Foreground Vivid Blue]
     else if mapElement == Bonus then do
@@ -38,13 +38,13 @@ printMapElement mapElement = do
         setSGR [Reset]        
     putStr $ show mapElement ++ " "
 
-printRow :: [MapElement] -> IO()
+printRow :: [MapElement] -> IO() -- Prints the row of the map
 printRow [x] = printMapElement x
 printRow (x:xs) = do
     printMapElement x
     printRow xs
 
-printMap :: Map -> IO()
+printMap :: Map -> IO() -- Prints the map
 printMap [x] = do
     printRow x
     putStrLn " "
@@ -54,8 +54,8 @@ printMap (x:xs) = do
     putStrLn " "
     printMap xs
 
-kodable :: IO () -- Introductory function, takes you to the main menu
-kodable = kodableMenu Nothing True
+main :: IO () -- Introductory function, takes you to the main menu
+main = kodableMenu Nothing True
 
 load :: Maybe Map -> String -> IO() -- Menu function for loading assistance
 load inpMap playerInp =
@@ -77,7 +77,7 @@ load inpMap playerInp =
                             kodableMenu inpMap False
                         playableMap -> do
                             putStrLn "Read map successfully!"
-                            putStrLn "Initial: "
+                            putStrLn "Initial: \n"
                             printMap (fromJust playableMap)
                             kodableMenu playableMap False
                     hClose handle                            
@@ -164,10 +164,10 @@ playGame inpMap throughHint (x:xs) predefinedFunction = do
     (mapAfterDirection, hasWon) <- if null xs then applyDirection inpMap x [] else applyDirection inpMap x [head xs]
     if hasWon then do
         printMap mapAfterDirection
-        putStrLn "Congratulations! You win the game!"
+        putStrLn "\nCongratulations! You win the game!"
         kodableMenu Nothing True
     else if mapAfterDirection == inpMap then do
-        putStrLn "Sorry! You have inputted an invalid move. "
+        putStrLn "\nSorry! You have inputted an invalid move. "
         putStrLn "Your current board: "
         printMap inpMap
         playInput inpMap False False [] predefinedFunction
@@ -245,8 +245,8 @@ kodableMenu inpMap playingFirstTime = do
     when playingFirstTime $ putStrLn "Welcome to Kodable!"
     putStrLn "Game Menu: "
     putStrLn "1) Load File: Input 'load <filename>'"
-    putStrLn "2) Check: Input 'check' if a map is already loaded"
-    putStrLn "3) Solve: Input 'solve' if a map is already loaded"
+    putStrLn "2) Check: Input 'check' if a map is already loaded to check if this map is solvable"
+    putStrLn "3) Solve: Input 'solve' if a map is already loaded to solve this map"
     putStrLn "4) Quit: Input 'quit' to quit the game"
     putStrLn "5) Play: Input 'play' to play Kodable"
     putStrLn " "
