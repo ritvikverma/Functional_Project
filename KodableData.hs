@@ -3,7 +3,7 @@ module KodableData where
 -- This file provides the core implementation of Kodable, defining all the data structures and their corresponding overrides
 
 import Parser
-import Prelude
+import Prelude hiding (Left, Right)
 
 data MapElement = PathBlock | Grass | Bonus | Target | Pink | Orange | Yellow | Ball | InvalidElement deriving (Eq)
 data Direction = Down | Up | Right | Left | ConditionalElem Conditional | LoopElem Loop | FunctionElem Function | InvalidDirection deriving (Eq)
@@ -30,15 +30,15 @@ instance Show MapElement where -- Show override for MapElements
 instance Show Direction where -- Show override for Directions
     show Down = "Down"
     show Up = "Up"
-    show KodableData.Right = "Right"
-    show KodableData.Left = "Left"
+    show Right = "Right"
+    show Left = "Left"
     show (ConditionalElem c) = show c
     show (LoopElem l) = show l
     show (FunctionElem f) = show f
     show InvalidDirection = "Invalid"
 
 instance Show Function where -- Show override for Functions
-    show (Function (direction1, direction2, direction3)) = "with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
+    show (Function (direction1, direction2, direction3)) = "Function with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
 
 instance Show Loop where -- Show override for Loops
     show (Loop (n, direction1, direction2)) = "Loop{" ++ show n ++ "}{" ++ show direction1 ++ "," ++ show direction2 ++ "}"
@@ -64,8 +64,8 @@ stringToDirection :: String -> Direction -- Takes a string, and returns the corr
 stringToDirection inpString
     | inpString == "Down" = Down
     | inpString == "Up" = Up
-    | inpString == "Right" = KodableData.Right
-    | inpString == "Left" = KodableData.Left
+    | inpString == "Right" = Right
+    | inpString == "Left" = Left
     | runParser conditionalParser inpString /=[] = ConditionalElem (fst(head(runParser conditionalParser inpString)))
     | runParser loopParser inpString /=[] = LoopElem (fst(head(runParser loopParser inpString)))
     | otherwise = InvalidDirection

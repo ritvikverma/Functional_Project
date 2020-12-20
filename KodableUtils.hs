@@ -1,34 +1,28 @@
 module KodableUtils where
 
 -- This file is the utility file for useful functions 
-
-import Data.List
-    ( (++),
-      filter,
-      zip,
-      map,
-      length,
-      elem,
-      null,
-      sum,
-      concat,
-      concatMap,
-      elemIndex,
-      intersect,
-      unwords,
-      (!!),
-      drop,
-      head,
-      last,
-      replicate,
-      reverse,
-      take )
 import Data.Maybe
-import Prelude
+import Data.List
+import Prelude hiding (Left, Right)
 import Parser
 import KodableData
 
 import Data.Char
+
+import System.IO
+import Data.Function
+
+loadMap :: String -> (Maybe Map, String) -- Loads the map, returns Nothing if could not load, with reason
+loadMap content 
+    | not $ all (== head wordsListLengths) (tail wordsListLengths) = (Nothing, "The map is not symmetrical") -- Lengths are not equal
+    | length wordsListLengths == head wordsListLengths = (Nothing, "The map is not rectangular") -- Square map
+    | [InvalidElement] `elem` attemptedMap = (Nothing, "Invalid element found in map") -- Invalid element in map
+    | isNothing $ getElementLocationInMap attemptedMap Ball = (Nothing, "No ball in map") -- No ball in map
+    | isNothing $ getElementLocationInMap attemptedMap Target = (Nothing, "No target in map") -- No ball in map
+    | otherwise = (Just attemptedMap, "")
+    where
+        attemptedMap = [if InvalidElement `elem` map charToElement (words line) then [InvalidElement] else map charToElement (words line) | line <- lines content]
+        wordsListLengths = [length $ words line | line <- lines content]
 
 isConditional :: MapElement -> Bool -- Is this map element one of the conditionals? 
 isConditional ele = ele `elem` [Yellow, Pink, Orange]
@@ -53,8 +47,8 @@ move :: Map -> Direction -> (Map, Int, Bool) -- Makes a move in this direction, 
 move inpMap direction
     | direction == Up && inBoard inpMap (ballRow - 1, ballColumn) && getElementAtLocation inpMap (ballRow - 1, ballColumn) `elem` movableElements = makeMove (ballRow - 1, ballColumn)
     | direction == Down && inBoard inpMap (ballRow + 1, ballColumn) && getElementAtLocation inpMap (ballRow + 1, ballColumn) `elem` movableElements = makeMove (ballRow + 1, ballColumn)
-    | direction == KodableData.Right && inBoard inpMap (ballRow, ballColumn + 1) && getElementAtLocation inpMap (ballRow, ballColumn + 1) `elem` movableElements = makeMove (ballRow, ballColumn + 1)
-    | direction == KodableData.Left && inBoard inpMap (ballRow, ballColumn - 1) && getElementAtLocation inpMap (ballRow, ballColumn - 1) `elem` movableElements = makeMove (ballRow, ballColumn - 1)
+    | direction == Right && inBoard inpMap (ballRow, ballColumn + 1) && getElementAtLocation inpMap (ballRow, ballColumn + 1) `elem` movableElements = makeMove (ballRow, ballColumn + 1)
+    | direction == Left && inBoard inpMap (ballRow, ballColumn - 1) && getElementAtLocation inpMap (ballRow, ballColumn - 1) `elem` movableElements = makeMove (ballRow, ballColumn - 1)
     | isConditionalElem direction = move inpMap $ snd (fromConditionalElem direction)
     | otherwise = (inpMap, 0, False)
     where
@@ -72,8 +66,8 @@ getNextElementInDirection :: Map -> Direction -> Maybe MapElement -- Returns the
 getNextElementInDirection inpMap direction
     | direction == Up && inBoard inpMap (ballRow - 1, ballColumn) = Just $ getElementAtLocation inpMap (ballRow - 1, ballColumn)
     | direction == Down && inBoard inpMap (ballRow + 1, ballColumn) = Just $ getElementAtLocation inpMap (ballRow + 1, ballColumn)
-    | direction == KodableData.Right && inBoard inpMap (ballRow, ballColumn + 1) = Just $ getElementAtLocation inpMap (ballRow, ballColumn + 1)
-    | direction == KodableData.Left && inBoard inpMap (ballRow, ballColumn - 1) = Just $ getElementAtLocation inpMap (ballRow, ballColumn - 1)
+    | direction == Right && inBoard inpMap (ballRow, ballColumn + 1) = Just $ getElementAtLocation inpMap (ballRow, ballColumn + 1)
+    | direction == Left && inBoard inpMap (ballRow, ballColumn - 1) = Just $ getElementAtLocation inpMap (ballRow, ballColumn - 1)
     | otherwise = Nothing
     where
         (ballRow, ballColumn) = fromJust (getElementLocationInMap inpMap Ball)
@@ -122,18 +116,85 @@ decodeDirections = concatMap decodeDirection
         decodeDirection (LoopElem (Loop(n, direction1, direction2))) = concat $ replicate n [direction1, direction2]
         decodeDirection direction = [direction]
 
-stringifyPath :: Map -> Path -> String -- Takes a path and makes it into a string after compressing the path
-stringifyPath inpMap path = appendDirections (map addDirectionStrings $ reverse (getReducedArray (reverse (getRawString inpMap path))))
-    where
-        getReducedArray [x] = [x]
-        getReducedArray [x,y] = if snd x/= snd y then x:[y] else [x]
-        getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else getReducedArray (y:zs)
-        getRawString inpMap [x,y] = [(getElementAtLocation inpMap x, getIndividualDirection x y)]
-        getRawString inpMap (x:y:zs) = (getElementAtLocation inpMap x, getIndividualDirection x y): getRawString inpMap (y:zs) 
-        addDirectionStrings (mapElement, direction) = if isConditional mapElement then (mapElement, show (Conditional (mapElement, direction))) else (mapElement, show direction)
-        appendDirections directions = unwords $ map snd directions
-        getIndividualDirection (parentRow, parentColumn) (currRow, currColumn) -- Gets the direction of where the ball seems to be going
-            | parentRow - currRow == 1 = Up -- Going up
-            | parentRow - currRow == -1 = Down -- Going down
-            | parentColumn - currColumn == 1 = KodableData.Left -- Going left
-            | parentColumn - currColumn == -1 =  KodableData.Right -- Going right
+getIndividualDirection :: Location -> Location -> Direction
+getIndividualDirection (parentRow, parentColumn) (currRow, currColumn) -- Gets the direction of where the ball seems to be going
+    | parentRow - currRow == 1 = Up -- Going up
+    | parentRow - currRow == -1 = Down -- Going down
+    | parentColumn - currColumn == 1 = Left -- Going left
+    | parentColumn - currColumn == -1 = Right -- Going right
+
+getRawString :: Map -> [Location] -> [(MapElement, Direction)]
+getRawString inpMap [x,y] = [(getElementAtLocation inpMap x, getIndividualDirection x y)]
+getRawString inpMap (x:y:zs) = (getElementAtLocation inpMap x, getIndividualDirection x y): getRawString inpMap (y:zs) 
+
+getReducedArray :: [(MapElement, Direction)] -> [(MapElement, Direction)] 
+getReducedArray [x] = [x]
+getReducedArray [x,y] = if snd x/= snd y then x:[y] else [x]
+getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else getReducedArray (y:zs)
+
+addDirectionStrings :: (MapElement, Direction) -> (MapElement, Direction)
+addDirectionStrings (mapElement, direction) = if isConditional mapElement then (mapElement, ConditionalElem (Conditional (mapElement, direction))) else (mapElement, direction)
+
+
+loopAccumulator :: (Direction, Direction) -> [Direction] -> Int -> (Int, [Direction])
+loopAccumulator (action1, action2) stack count
+  | length stack < 2 || count > 4 = (count, stack)
+  | otherwise = if head stack == action1 && stack !! 1 == action2 then loopAccumulator (action1, action2) (drop 2 stack) (count + 1) else (count, stack)
+
+createLoops :: [Direction] -> [Direction]
+createLoops stack
+  | length stack < 4 = stack
+  | otherwise = if action1 == (stack !! 2) && action2 == (stack !! 3) then result else head stack : createLoops (tail stack)
+  where
+    action1 = head stack
+    action2 = stack !! 1
+    (loopCount, remList) = loopAccumulator (action1, action2) (drop 4 stack) 2
+    result = LoopElem (Loop (loopCount, action1, action2)) : createLoops remList
+
+createFunctions :: [Direction] -> [Direction]
+createFunctions [a, b] = [a, b]
+createFunctions [a] = [a]
+createFunctions [] = []
+createFunctions (LoopElem (Loop (x1, a1, a2)) : b : c : remList) = LoopElem (Loop (x1, a1, a2)) : createFunctions (b : c : remList)
+createFunctions (b :LoopElem (Loop (x1, a1, a2)) : c : remList) = [b, LoopElem (Loop (x1, a1, a2))] ++ createFunctions (c : remList)
+createFunctions (b : c : LoopElem (Loop (x1, a1, a2)) : remList) = [b, c, LoopElem (Loop (x1, a1, a2))] ++ createFunctions remList
+createFunctions (a : b : c : remList) = FunctionElem (Function (a, b, c)) : createFunctions (b : c : remList)
+
+extractFunctions :: [Direction] -> [Direction]
+extractFunctions [] = []
+extractFunctions (FunctionElem (Function (a, b, c)) : remList) = FunctionElem (Function (a, b, c)) : extractFunctions remList
+extractFunctions (x : remList) = extractFunctions remList
+
+mostFreqFunction :: [Direction] -> Direction
+mostFreqFunction list = fst $ maximumBy (compare `on` snd) elemCounts
+  where
+    elemCounts = nub [(element, count) | element <- list, let count = length (filter (== element) list)]
+
+replaceWithFunction :: [Direction] -> Direction -> [Direction]
+replaceWithFunction directions fn
+  | length directions < 3 = directions
+  | otherwise = if head directions == a && directions !! 1 == b && directions !! 2 == c then fn : replaceWithFunction (drop 3 directions) fn else head directions : replaceWithFunction (tail directions) fn
+  where
+    FunctionElem (Function (a, b, c)) = fn
+
+addFunctionToPath :: [Direction] -> [Direction]
+addFunctionToPath directions = if null functions then directions else replaceWithFunction directions (mostFreqFunction functions)
+  where
+    functions = extractFunctions $ createFunctions directions
+
+parsePath :: [Direction] -> [Direction]
+parsePath optimalPath = finalPathWithFunctions
+  where
+    parsedWithLoops = createLoops optimalPath
+    finalPathWithFunctions = addFunctionToPath parsedWithLoops
+
+helper :: IO()
+helper = do
+    handle <- openFile "testmap.txt" ReadMode
+    contents <- hGetContents handle
+    let inpMap = fromJust $ fst $ loadMap contents
+    let bonusesOnMap = getBonusOnMap inpMap
+    let pathsWithMaximumBonuses = getPathsToTargetWithBonuses inpMap bonusesOnMap (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0
+    let pathWithMaximumBonus = last $ sortOn length pathsWithMaximumBonuses
+    print $ parsePath (map (snd . addDirectionStrings) $ reverse(getReducedArray(reverse (getRawString inpMap pathWithMaximumBonus))))
+    hClose handle

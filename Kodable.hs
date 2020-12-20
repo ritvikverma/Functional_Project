@@ -9,22 +9,10 @@ import System.IO
 import KodableUtils
 import Control.Monad
 
-import Prelude
+import Prelude hiding (Left, Right)
 
 kodable :: IO () -- Introductory function, takes you to the main menu
 kodable = kodableMenu Nothing True
-
-loadMap :: String -> (Maybe Map, String) -- Loads the map, returns Nothing if could not load, with reason
-loadMap content 
-    | not $ all (== head wordsListLengths) (tail wordsListLengths) = (Nothing, "The map is not symmetrical") -- Lengths are not equal
-    | length wordsListLengths == head wordsListLengths = (Nothing, "The map is not rectangular") -- Square map
-    | [InvalidElement] `elem` attemptedMap = (Nothing, "Invalid element found in map") -- Invalid element in map
-    | isNothing $ getElementLocationInMap attemptedMap Ball = (Nothing, "No ball in map") -- No ball in map
-    | isNothing $ getElementLocationInMap attemptedMap Target = (Nothing, "No target in map") -- No ball in map
-    | otherwise = (Just attemptedMap, "")
-    where
-        attemptedMap = [if InvalidElement `elem` map charToElement (words line) then [InvalidElement] else map charToElement (words line) | line <- lines content]
-        wordsListLengths = [length $ words line | line <- lines content]
 
 load :: Maybe Map -> String -> IO() -- Menu function for loading assistance
 load inpMap playerInp =
