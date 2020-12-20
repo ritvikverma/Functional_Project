@@ -1,7 +1,7 @@
 kodable: clean
 	-stack install ansi-terminal
 	-cabal install --lib ansi-terminal
-	-ghc Kodable.hs
+	-stack Kodable.hs
 	-./Kodable
 
 clean:
