@@ -1,6 +1,7 @@
 module KodableUtils where
 
 -- This file is the utility file for useful functions 
+
 import Data.Maybe
 import Data.List
 import Prelude hiding (Left, Right)

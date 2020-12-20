@@ -1,5 +1,7 @@
 module Kodable where
 
+-- This file is the menu and the user interface for hints, play, quit, solve, and check
+
 import Data.List
 import KodableData
 import Data.Maybe
