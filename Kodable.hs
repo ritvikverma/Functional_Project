@@ -10,6 +10,7 @@ import Data.Char
 import System.IO
 import KodableUtils
 import Control.Monad
+import Control.Concurrent
 
 import Prelude hiding (Left, Right)
 
@@ -97,6 +98,10 @@ solve inpMap playerInp =
 
 applyDirection :: Map -> Direction -> [Direction] -> IO(Map, Bool) -- Applies the direction and returns the updated map and if we have won
 applyDirection inpMap direction nextDirection = do
+    putStr "\ESC[2J"
+    putStrLn $ printMap inpMap
+    putStrLn " "
+    threadDelay 100000
     when (bonusesCollectedOnThisMove > 0) $ putStrLn (show bonusesCollectedOnThisMove ++ " bonu(es) collected! ")
     if hasWon then return (mapAfterNextMove, True)
     else if mapAfterNextMove == inpMap then return (mapAfterNextMove, hasWon)
@@ -114,13 +119,12 @@ applyDirection inpMap direction nextDirection = do
 
 playGame :: Map -> Bool -> [Direction] -> [Direction] -> IO() -- Plays the game if we enter play in the menu
 playGame inpMap throughHint [] predefinedFunction = do
-    unless throughHint $ putStrLn $ printMap inpMap
     playInput inpMap False throughHint [] predefinedFunction 
 playGame inpMap throughHint (x:xs) predefinedFunction = do
     (mapAfterDirection, hasWon) <- if null xs then applyDirection inpMap x [] else applyDirection inpMap x [head xs]
     if hasWon then do
-        putStrLn "Congratulations! You win the game!"
         putStrLn $ printMap mapAfterDirection
+        putStrLn "Congratulations! You win the game!"
         kodableMenu Nothing True
     else if mapAfterDirection == inpMap then do
         putStrLn "Sorry! You have inputted an invalid move. "
@@ -155,7 +159,7 @@ playInput inpMap firstTime throughHint directions predefinedFunction = do
         when (firstTime && not (null directions) || not firstTime) $ putStr "Next direction: "
         playerInp <- getLine
         if null playerInp then do
-            playGame inpMap False directions predefinedFunction
+            playGame inpMap False (decodeDirections directions) predefinedFunction
         else if head (words playerInp) `elem` ["hint", "Hint"] then do
             playGame inpMap True directions predefinedFunction
         else if head (words playerInp) == "Function" then do
@@ -247,3 +251,16 @@ kodableMenu inpMap playingFirstTime = do
     else
         do
             kodableMenu inpMap False
+
+
+animate :: IO()
+animate = do
+    handle <- openFile "testmap.txt" ReadMode
+    contents <- hGetContents handle
+    let inpMap = fromJust $ fst $ loadMap contents
+    let bonusesOnMap = getBonusOnMap inpMap
+    let pathsWithMaximumBonuses = concat [getPathsToTargetWithBonuses inpMap bonus (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0 | bonus <- [0..bonusesOnMap]]
+    let bestPath = shortestPath inpMap pathsWithMaximumBonuses
+    let decodedBestPath = decodeDirections bestPath
+    playGame inpMap False decodedBestPath [] 
+    hClose handle
