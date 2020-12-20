@@ -135,20 +135,10 @@ getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else g
 addDirectionStrings :: (MapElement, Direction) -> (MapElement, Direction)
 addDirectionStrings (mapElement, direction) = if isColour mapElement then (mapElement, Conditional (mapElement, direction)) else (mapElement, direction)
 
-loopAccumulator :: (Direction, Direction) -> [Direction] -> Int -> (Int, [Direction])
-loopAccumulator (action1, action2) stack count
+appendLoops :: (Direction, Direction) -> [Direction] -> Int -> (Int, [Direction])
+appendLoops (action1, action2) stack count
   | length stack < 2 || count > 4 = (count, stack)
-  | otherwise = if head stack == action1 && stack !! 1 == action2 then loopAccumulator (action1, action2) (drop 2 stack) (count + 1) else (count, stack)
-
-createLoops :: [Direction] -> [Direction]
-createLoops stack
-  | length stack < 4 = stack
-  | otherwise = if action1 == (stack !! 2) && action2 == (stack !! 3) then result else head stack : createLoops (tail stack)
-  where
-    action1 = head stack
-    action2 = stack !! 1
-    (loopCount, remList) = loopAccumulator (action1, action2) (drop 4 stack) 2
-    result = Loop (loopCount, action1, action2) : createLoops remList
+  | otherwise = if head stack == action1 && stack !! 1 == action2 then appendLoops (action1, action2) (drop 2 stack) (count + 1) else (count, stack)
 
 createFunctions :: [Direction] -> [Direction]
 createFunctions [a, b] = [a, b]
@@ -157,35 +147,45 @@ createFunctions [] = []
 createFunctions (Loop (x1, a1, a2) : b : c : remList) = Loop (x1, a1, a2) : createFunctions (b : c : remList)
 createFunctions (b : Loop (x1, a1, a2) : c : remList) = [b, Loop (x1, a1, a2)] ++ createFunctions (c : remList)
 createFunctions (b : c : Loop (x1, a1, a2) : remList) = [b, c, Loop (x1, a1, a2)] ++ createFunctions remList
-createFunctions (a : b : c : remList) = Function (a, b, c) : createFunctions (b : c : remList)
+createFunctions (a : b : c : remList) = Function (a, b, c) : createFunctions (b : c : remList)  
 
-extractFunctions :: [Direction] -> [Direction]
-extractFunctions [] = []
-extractFunctions (Function (a, b, c) : remList) = Function (a, b, c) : extractFunctions remList
-extractFunctions (x : remList) = extractFunctions remList
+createLoops :: [Direction] -> [Direction]
+createLoops stack
+  | length stack < 4 = stack
+  | otherwise = if action1 == (stack !! 2) && action2 == (stack !! 3) then result else head stack : createLoops (tail stack)
+  where
+    action1 = head stack
+    action2 = stack !! 1
+    (loopCount, remList) = appendLoops (action1, action2) (drop 4 stack) 2
+    result = Loop (loopCount, action1, action2) : createLoops remList
 
-mostFreqFunction :: [Direction] -> Direction
-mostFreqFunction list = fst $ maximumBy (compare `on` snd) elemCounts
+getFunctions :: [Direction] -> [Direction]
+getFunctions [] = []
+getFunctions (Function (a, b, c) : remList) = Function (a, b, c) : getFunctions remList
+getFunctions (x : remList) = getFunctions remList
+
+highestOccurringFunction :: [Direction] -> Direction
+highestOccurringFunction list = fst $ maximumBy (compare `on` snd) elemCounts
   where
     elemCounts = nub [(element, count) | element <- list, let count = length (filter (== element) list)]
 
-replaceWithFunction :: [Direction] -> Direction -> [Direction]
-replaceWithFunction directions fn
+putFunc :: [Direction] -> Direction -> [Direction]
+putFunc directions fn
   | length directions < 3 = directions
-  | otherwise = if head directions == a && directions !! 1 == b && directions !! 2 == c then fn : replaceWithFunction (drop 3 directions) fn else head directions : replaceWithFunction (tail directions) fn
+  | otherwise = if head directions == a && directions !! 1 == b && directions !! 2 == c then fn : putFunc (drop 3 directions) fn else head directions : putFunc (tail directions) fn
   where
     Function (a, b, c) = fn
 
-addFunctionToPath :: [Direction] -> [Direction]
-addFunctionToPath directions = if null functions then directions else replaceWithFunction directions (mostFreqFunction functions)
+appendFunctions :: [Direction] -> [Direction]
+appendFunctions directions = if null functions then directions else putFunc directions (highestOccurringFunction functions)
   where
-    functions = extractFunctions $ createFunctions directions
+    functions = getFunctions $ createFunctions directions
 
-parsePath :: [Direction] -> [Direction]
-parsePath optimalPath = finalPathWithFunctions
+getCompressedPath :: [Direction] -> [Direction]
+getCompressedPath optimalPath = finalPathWithFunctions
   where
     parsedWithLoops = createLoops optimalPath
-    finalPathWithFunctions = addFunctionToPath parsedWithLoops
+    finalPathWithFunctions = appendFunctions parsedWithLoops
 
 helper :: IO()
 helper = do
@@ -195,5 +195,5 @@ helper = do
     let bonusesOnMap = getBonusOnMap inpMap
     let pathsWithMaximumBonuses = getPathsToTargetWithBonuses inpMap bonusesOnMap (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0
     let pathWithMaximumBonus = last $ sortOn length pathsWithMaximumBonuses
-    print $ parsePath (map (snd . addDirectionStrings) $ reverse(getReducedArray(reverse (getRawString inpMap pathWithMaximumBonus))))
+    print $ getCompressedPath (map (snd . addDirectionStrings) $ reverse(getReducedArray(reverse (getRawString inpMap pathWithMaximumBonus))))
     hClose handle
