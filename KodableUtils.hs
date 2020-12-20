@@ -135,21 +135,7 @@ getReducedArray (x:y:zs) = if snd x/= snd y then x:getReducedArray (y:zs) else g
 addDirectionStrings :: (MapElement, Direction) -> (MapElement, Direction)
 addDirectionStrings (mapElement, direction) = if isColour mapElement then (mapElement, Conditional (mapElement, direction)) else (mapElement, direction)
 
-appendLoops :: (Direction, Direction) -> [Direction] -> Int -> (Int, [Direction])
-appendLoops (action1, action2) stack count
-  | length stack < 2 || count > 4 = (count, stack)
-  | otherwise = if head stack == action1 && stack !! 1 == action2 then appendLoops (action1, action2) (drop 2 stack) (count + 1) else (count, stack)
-
-createFunctions :: [Direction] -> [Direction]
-createFunctions [a, b] = [a, b]
-createFunctions [a] = [a]
-createFunctions [] = []
-createFunctions (Loop (x1, a1, a2) : b : c : remList) = Loop (x1, a1, a2) : createFunctions (b : c : remList)
-createFunctions (b : Loop (x1, a1, a2) : c : remList) = [b, Loop (x1, a1, a2)] ++ createFunctions (c : remList)
-createFunctions (b : c : Loop (x1, a1, a2) : remList) = [b, c, Loop (x1, a1, a2)] ++ createFunctions remList
-createFunctions (a : b : c : remList) = Function (a, b, c) : createFunctions (b : c : remList)  
-
-createLoops :: [Direction] -> [Direction]
+createLoops :: [Direction] -> [Direction] -- Generates loops on set of directions
 createLoops stack
   | length stack < 4 = stack
   | otherwise = if action1 == (stack !! 2) && action2 == (stack !! 3) then result else head stack : createLoops (tail stack)
@@ -158,34 +144,62 @@ createLoops stack
     action2 = stack !! 1
     (loopCount, remList) = appendLoops (action1, action2) (drop 4 stack) 2
     result = Loop (loopCount, action1, action2) : createLoops remList
+    appendLoops (dir1, dir2) currDirList count
+        | length currDirList < 2 || count > 4 = (count, currDirList)
+        | otherwise = if head currDirList == dir1 && currDirList !! 1 == dir2 then appendLoops (dir1, dir2) (drop 2 currDirList) (count + 1) else (count, currDirList)
 
-getFunctions :: [Direction] -> [Direction]
-getFunctions [] = []
-getFunctions (Function (a, b, c) : remList) = Function (a, b, c) : getFunctions remList
-getFunctions (x : remList) = getFunctions remList
-
-highestOccurringFunction :: [Direction] -> Direction
+highestOccurringFunction :: [Direction] -> Direction -- Returns the highest occurring functon in this list of directions
 highestOccurringFunction list = fst $ maximumBy (compare `on` snd) elemCounts
   where
     elemCounts = nub [(element, count) | element <- list, let count = length (filter (== element) list)]
 
-putFunc :: [Direction] -> Direction -> [Direction]
+putFunc :: [Direction] -> Direction -> [Direction] -- Puts this function in this list of directions
 putFunc directions fn
   | length directions < 3 = directions
   | otherwise = if head directions == a && directions !! 1 == b && directions !! 2 == c then fn : putFunc (drop 3 directions) fn else head directions : putFunc (tail directions) fn
   where
     Function (a, b, c) = fn
 
-appendFunctions :: [Direction] -> [Direction]
-appendFunctions directions = if null functions then directions else putFunc directions (highestOccurringFunction functions)
-  where
-    functions = getFunctions $ createFunctions directions
-
-getCompressedPath :: [Direction] -> [Direction]
+getCompressedPath :: [Direction] -> [Direction] -- Nested function that returns compressed path (after adding loops and functions) if we send a list of directions
 getCompressedPath optimalPath = finalPathWithFunctions
   where
     parsedWithLoops = createLoops optimalPath
     finalPathWithFunctions = appendFunctions parsedWithLoops
+    appendFunctions directions = if null functions then directions else putFunc directions (highestOccurringFunction functions)
+        where
+            functions = getFunctions $ createFunctions directions
+            createFunctions [a, b] = [a, b]
+            createFunctions [a] = [a]
+            createFunctions [] = []
+            createFunctions (Loop (n, a1, a2) : b : c : remList) = Loop (n, a1, a2) : createFunctions (b : c : remList)
+            createFunctions (b : Loop (n, a1, a2) : c : remList) = [b, Loop (n, a1, a2)] ++ createFunctions (c : remList)
+            createFunctions (b : c : Loop (n, a1, a2) : remList) = [b, c, Loop (n, a1, a2)] ++ createFunctions remList
+            createFunctions (a : b : c : remList) = Function (a, b, c) : createFunctions (b : c : remList)  
+            getFunctions [] = []
+            getFunctions (Function (a, b, c) : remList) = Function (a, b, c) : getFunctions remList
+            getFunctions (x : remList) = getFunctions remList
+
+stringifyPath :: [Direction] -> String -- Stringifies a path. Useful for optimal paths
+stringifyPath path = if isNothing retrievedFunction then unwords formedStringArray else unwords (formedStringArray++[show $ fromJust retrievedFunction])
+    where
+        formedStringArray = [if isFunction direction then "Function" else show direction | direction <- path]
+        retrievedFunction = getFunction path
+        getFunction [] = Nothing
+        getFunction (Function f : xs) = Just (Function f)
+        getFunction (_:xs) = getFunction xs
+
+hintyPath :: [Direction] -> String -- During a hint, we can't show a function, so the hint path is different
+hintyPath inpPath = unwords [show direction | direction <- hintyDirections inpPath]
+    where
+        hintyDirections [] = []
+        hintyDirections (Function (a, b, c): xs) = a:b:c:hintyDirections xs
+        hintyDirections (x:xs) = x:hintyDirections xs
+
+shortestPath :: Map -> [Path] -> [Direction] -- Returns the shortest path
+shortestPath inpMap pathList = shortestCompressedPath
+    where
+        compressedPath path = getCompressedPath (map (snd . addDirectionStrings) $ reverse(getReducedArray(reverse (getRawString inpMap path))))
+        shortestCompressedPath = head $ sortOn length $ [compressedPath uncompressedPath | uncompressedPath <- pathList]
 
 helper :: IO()
 helper = do
@@ -195,5 +209,6 @@ helper = do
     let bonusesOnMap = getBonusOnMap inpMap
     let pathsWithMaximumBonuses = getPathsToTargetWithBonuses inpMap bonusesOnMap (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0
     let pathWithMaximumBonus = last $ sortOn length pathsWithMaximumBonuses
-    print $ getCompressedPath (map (snd . addDirectionStrings) $ reverse(getReducedArray(reverse (getRawString inpMap pathWithMaximumBonus))))
+    putStrLn $ stringifyPath $ shortestPath inpMap pathsWithMaximumBonuses
+    putStrLn $ hintyPath $ shortestPath inpMap pathsWithMaximumBonuses
     hClose handle

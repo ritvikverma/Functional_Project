@@ -73,14 +73,14 @@ solve inpMap playerInp =
                                             if null pathsWithCustomBonus then do
                                                 putStrLn $ "There are no paths with " ++ show (read customBonus :: Int) ++ " bonus(es) on this map"
                                             else
-                                                putStrLn $ "The shortest path with " ++ show (read customBonus :: Int) ++ " bonus(es) is: " ++ unwords (head $ sortOn length $ map (words . stringifyPath unJustMap) pathsWithCustomBonus)
+                                                putStrLn $ "The shortest path with " ++ show (read customBonus :: Int) ++ " bonus(es) is: " ++ stringifyPath(shortestPath unJustMap pathsWithCustomBonus)
 
                                 else do
-                                    putStrLn $ "The shortest path if we do not care about the bonus(es) is: " ++ unwords (head $ sortOn length $ map (words . stringifyPath unJustMap) allPaths)
+                                    putStrLn $ "The shortest path if we do not care about the bonus(es) is: " ++ stringifyPath (shortestPath unJustMap allPaths)
 
                                 if not $ null pathsWithMaximumBonuses then
                                     do
-                                        putStrLn $ "The shortest path with all the bonus(es) is: " ++ unwords (head $ sortOn length $ map (words . stringifyPath unJustMap) pathsWithMaximumBonuses)
+                                        putStrLn $ "The shortest path with all the bonus(es) is: " ++ stringifyPath (shortestPath unJustMap pathsWithMaximumBonuses)
                                         putStrLn $ "The bonus(es) on this path are: " ++ show bonusesOnMap
                                 else
                                     do
@@ -98,8 +98,8 @@ applyDirection inpMap direction nextDirection = do
     when (bonusesCollectedOnThisMove > 0) $ putStrLn (show bonusesCollectedOnThisMove ++ " bonu(es) collected! ")
     if hasWon then return (mapAfterNextMove, True)
     else if mapAfterNextMove == inpMap then return (mapAfterNextMove, hasWon)
-    else if not (null nextDirection) && isConditionalElem (head nextDirection) then do
-        let (mapElementOfConditional, directionOfConditional) = fromConditionalElem (head nextDirection)
+    else if not (null nextDirection) && isConditional (head nextDirection) then do
+        let (mapElementOfConditional, directionOfConditional) = fromConditional (head nextDirection)
         let nextElementInDirection = getNextElementInDirection inpMap direction
         if nextElementInDirection == Just mapElementOfConditional then do
             applyDirection mapAfterNextMove directionOfConditional nextDirection
@@ -112,7 +112,7 @@ applyDirection inpMap direction nextDirection = do
 
 playGame :: Map -> Bool -> [Direction] -> [Direction] -> IO() -- Plays the game if we enter play in the menu
 playGame inpMap throughHint [] predefinedFunction = do
-    putStrLn $ printMap inpMap
+    unless throughHint $ putStrLn $ printMap inpMap
     playInput inpMap False throughHint [] predefinedFunction 
 playGame inpMap throughHint (x:xs) predefinedFunction = do
     (mapAfterDirection, hasWon) <- if null xs then applyDirection inpMap x [] else applyDirection inpMap x [head xs]
@@ -133,18 +133,18 @@ playInput inpMap firstTime throughHint directions predefinedFunction = do
     let bonusesOnMap = getBonusOnMap inpMap
     let allPaths = concat [getPathsToTargetWithBonuses inpMap bonusNumber (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0 | bonusNumber <- [0..bonusesOnMap]]
     let pathsWithMaximumBonus = getPathsToTargetWithBonuses inpMap bonusesOnMap (fromJust $ getElementLocationInMap inpMap Ball) [] [] 0
-    let shortestPath = sortOn length $ map (words . stringifyPath inpMap) allPaths
-    let pathWithMaxBonus = sortOn length $ map (words . stringifyPath inpMap) pathsWithMaximumBonus
+    let overAllShortestPath = shortestPath inpMap allPaths
+    let pathWithMaxBonus = shortestPath inpMap pathsWithMaximumBonus
     if throughHint then do
-        if null pathWithMaxBonus then do
+        if null pathsWithMaximumBonus then do
             putStrLn "We cannot collect all bonuses at this point in this map"
-        else
-            putStrLn $ "If you want to collect the most bonuses, how about: " ++ head (head pathWithMaxBonus)
-        if null shortestPath then do
+        else do
+            putStrLn $ "If you want to collect the most bonuses, how about: " ++ head (words $ hintyPath pathWithMaxBonus)
+        if null allPaths then do
             putStrLn "Error! Target is unreachable. "
             kodableMenu Nothing True
         else do
-            putStrLn $ "To reach the target fastest, how about: " ++ head (head shortestPath)
+            putStrLn $ "To reach the target fastest, how about: " ++ head (words $ hintyPath overAllShortestPath)
         
         playInput inpMap firstTime False directions predefinedFunction
     else do
@@ -154,7 +154,7 @@ playInput inpMap firstTime throughHint directions predefinedFunction = do
         playerInp <- getLine
         if null playerInp then do
             playGame inpMap False directions predefinedFunction
-        else if head (words playerInp) == "hint" then do
+        else if head (words playerInp) `elem` ["hint", "Hint"] then do
             playGame inpMap True directions predefinedFunction
         else if head (words playerInp) == "Function" then do
             if null predefinedFunction then do
@@ -185,7 +185,7 @@ play inpMap playerInp =
             if InvalidDirection `elem` map stringToDirection (tail (words playerInp)) then do
                 putStrLn "Invalid direction for function call"
                 kodableMenu inpMap False
-            else if any (isLoopElem . stringToDirection) (tail (words playerInp))  then do
+            else if any (isLoop . stringToDirection) (tail (words playerInp))  then do
                 putStrLn "A function cannot contain a loop inside"
                 kodableMenu inpMap False
             else do

@@ -28,22 +28,26 @@ instance Show Direction where -- Show override for Directions
     show Left = "Left"
     show (Conditional (mapElement, direction)) = "Cond{" ++ show mapElement ++ "}{" ++ show direction ++ "}"
     show (Loop (n, direction1, direction2)) = "Loop{" ++ show n ++ "}{" ++ show direction1 ++ "," ++ show direction2 ++ "}"
-    show (Function (direction1, direction2, direction3)) = "Function with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
+    show (Function (direction1, direction2, direction3)) = "with " ++ show direction1 ++ " " ++ show direction2 ++ " " ++ show direction3 
     show InvalidDirection = "Invalid"
 
 printMap :: Map -> String -- Takes a map, and prints it
 printMap [x] = unwords (map show x)
 printMap (x:xs) = unwords (map show x) ++ "\n" ++ printMap xs
 
-isConditional :: Direction -> Bool -- Tells whether this direction is a ConditionalElem
+isConditional :: Direction -> Bool -- Tells whether this direction is a Conditional
 isConditional (Conditional _) = True
 isConditional _ = False
 
-isLoop :: Direction -> Bool -- Tells whether this direction is a LoopElem
+isFunction :: Direction -> Bool -- Tells whether this direction is a Function
+isFunction (Function _) = True
+isFunction _ = False
+
+isLoop :: Direction -> Bool -- Tells whether this direction is a Loop
 isLoop (Loop _) = True
 isLoop _ = False
 
-fromConditional :: Direction -> (MapElement, Direction) -- Retreives the tuple contained within the ConditionalElem
+fromConditional :: Direction -> (MapElement, Direction) -- Retreives the tuple contained within the Conditional
 fromConditional ((Conditional (mapElement, direction))) = (mapElement, direction)
 fromConditional _ = (InvalidElement, InvalidDirection)
 
